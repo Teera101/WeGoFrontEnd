@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupsAPI } from '../lib/api';
 import { toast } from '../components/Toasts';
+import { socket } from '../lib/socket';
 
 export type Group = {
   _id?: string;
@@ -16,6 +18,28 @@ export function useGroups() {
     queryKey: ['groups'],
     queryFn: () => groupsAPI.getAll().then(res => res.data),
   });
+
+  useEffect(() => {
+    if (!socket.connected) socket.connect();
+
+    const refreshGroups = () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    };
+
+    socket.on('group:create', refreshGroups);
+    socket.on('group:update', refreshGroups);
+    socket.on('group:delete', refreshGroups);
+    socket.on('chat:updated', refreshGroups);
+    socket.on('participant:update', refreshGroups);
+
+    return () => {
+      socket.off('group:create', refreshGroups);
+      socket.off('group:update', refreshGroups);
+      socket.off('group:delete', refreshGroups);
+      socket.off('chat:updated', refreshGroups);
+      socket.off('participant:update', refreshGroups);
+    };
+  }, [queryClient]);
 
   const createGroup = useMutation({
     mutationFn: groupsAPI.create,
