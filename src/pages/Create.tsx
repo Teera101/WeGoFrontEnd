@@ -18,12 +18,8 @@ interface FormData {
 }
 
 const DEFAULT_COVERS = [
-  { id: 'sport', url: '/covers/sport.jpg', label: 'Sports' },
+  { id: 'concert', url: '/covers/concert.jpg', label: 'concert' },
   { id: 'study', url: '/covers/study.jpg', label: 'Study' },
-  { id: 'party', url: '/covers/party.jpg', label: 'Party' },
-  { id: 'travel', url: '/covers/travel.jpg', label: 'Travel' },
-  { id: 'food', url: '/covers/food.jpg', label: 'Food' },
-  { id: 'chill', url: '/covers/meeting.jpg', label: 'Meeting' },
 ];
 
 export default function Create() {
