@@ -5,6 +5,7 @@ import { ALL_TAGS } from '../lib/demoData';
 import TagFilterBar from '../components/TagFilterBar';
 import EventCard from '../components/EventCard';
 import EditGroupModal from '../components/EditGroupModal';
+import { socket } from '../lib/socket';
 
 export default function Explore() {
   const { events, isLoading, fetchEvents } = useEvents();
@@ -13,7 +14,6 @@ export default function Explore() {
   const [q, setQ] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   
-  // State สำหรับ Modal
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -22,6 +22,26 @@ export default function Explore() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    if (!socket.connected) socket.connect();
+
+    const handleRealtimeUpdate = () => {
+      fetchEvents();
+    };
+
+    socket.on('activity:create', handleRealtimeUpdate);
+    socket.on('activity:update', handleRealtimeUpdate);
+    socket.on('activity:delete', handleRealtimeUpdate);
+    socket.on('participant:update', handleRealtimeUpdate);
+    
+    return () => {
+      socket.off('activity:create', handleRealtimeUpdate);
+      socket.off('activity:update', handleRealtimeUpdate);
+      socket.off('activity:delete', handleRealtimeUpdate);
+      socket.off('participant:update', handleRealtimeUpdate);
+    };
+  }, [fetchEvents]);
 
   const filtered = useMemo(() => {
     let arr: Event[] = [...events];
@@ -37,7 +57,6 @@ export default function Explore() {
     return arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [q, tags, events]);
 
-  // ฟังก์ชันเปิด Modal
   const handleEditClick = (eventData: any) => {
     setEditingEvent(eventData);
     setShowEditModal(true);
@@ -96,7 +115,6 @@ export default function Explore() {
               return pid === user._id;
             }));
 
-            // ✅ [4] แก้ไข Logic เช็ค Owner ให้รองรับทั้ง String และ Object
             const createdById = ev.createdBy 
               ? (typeof ev.createdBy === 'string' ? ev.createdBy : ev.createdBy._id) 
               : null;
@@ -132,7 +150,7 @@ export default function Explore() {
                 isCreator={isCreator}
                 chatId={ev.chat}
                 onUpdate={fetchEvents}
-                onEdit={() => handleEditClick(ev)} // ✅ ส่งฟังก์ชันเปิด Modal
+                onEdit={() => handleEditClick(ev)}
               />
             );
           })}
@@ -161,23 +179,20 @@ export default function Explore() {
         )}
       </div>
 
-      {/* ✅ [5] Modal Controller */}
       {editingEvent && (
         <EditGroupModal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           targetId={editingEvent._id}
-          
-          type="event" // 👈 กำหนด type เป็น event (สำคัญมาก!)
-          
+          type="event"
           isOwner={user?._id === (typeof editingEvent.createdBy === 'string' ? editingEvent.createdBy : editingEvent.createdBy?._id)}
           initialData={{
-            name: editingEvent.title, // Map ข้อมูลให้ตรง
+            name: editingEvent.title,
             description: editingEvent.description,
             maxMembers: editingEvent.maxParticipants || editingEvent.maxMembers
           }}
           onUpdate={() => {
-            fetchEvents(); // โหลดข้อมูลใหม่หลังแก้เสร็จ
+            fetchEvents();
           }}
         />
       )}
