@@ -38,6 +38,7 @@ export default function Create() {
     maxParticipants: 2,
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewImage, setPreviewImage] = useState<string>('');
@@ -141,6 +142,8 @@ export default function Create() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmitting || isLoading) return;
+
     if (!formData.title || !formData.description || !formData.location || 
         !formData.date || !formData.time) {
       toast('Please fill in all required fields', 'error');
@@ -151,6 +154,8 @@ export default function Create() {
       toast('Minimum 2 participants required', 'error');
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       let coverUrl = undefined;
@@ -214,6 +219,7 @@ export default function Create() {
     } catch (error: any) {
       console.error('Create event error:', error);
       toast('ไม่สามารถสร้างกิจกรรมได้', 'error');
+      setIsSubmitting(false);
     }
   };
 
@@ -269,7 +275,7 @@ export default function Create() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300 shadow-sm"
-                    disabled={isLoading}
+                    disabled={isSubmitting || isLoading}
                   >
                     📤 Upload Photo
                   </button>
@@ -278,6 +284,7 @@ export default function Create() {
                       type="button"
                       onClick={removeImage}
                       className="px-4 py-2 text-sm font-semibold border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 rounded-lg transition-all duration-300"
+                      disabled={isSubmitting || isLoading}
                     >
                       Remove
                     </button>
@@ -296,6 +303,7 @@ export default function Create() {
                         key={cover.id}
                         type="button"
                         onClick={() => handleDefaultSelect(cover.url)}
+                        disabled={isSubmitting || isLoading}
                         className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 group ${
                           selectedDefault === cover.url 
                             ? 'border-amber-500 ring-2 ring-amber-500/30 scale-105 z-10' 
@@ -343,7 +351,7 @@ export default function Create() {
               value={formData.title}
               onChange={handleChange}
               required
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
@@ -357,7 +365,7 @@ export default function Create() {
               value={formData.description}
               onChange={handleChange}
               required
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
@@ -371,7 +379,7 @@ export default function Create() {
               value={formData.location}
               onChange={handleChange}
               required
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
@@ -386,7 +394,7 @@ export default function Create() {
                 value={formData.date}
                 onChange={handleChange}
                 required
-                disabled={isLoading}
+                disabled={isSubmitting || isLoading}
               />
             </div>
             <div>
@@ -399,7 +407,7 @@ export default function Create() {
                 value={formData.time}
                 onChange={handleChange}
                 required
-                disabled={isLoading}
+                disabled={isSubmitting || isLoading}
               />
             </div>
           </div>
@@ -408,7 +416,7 @@ export default function Create() {
             <TagSelector 
               value={formData.tags} 
               onChange={(newTags) => setFormData((prev: FormData) => ({ ...prev, tags: newTags }))}
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             />
           </div>
 
@@ -425,7 +433,7 @@ export default function Create() {
               value={formData.maxParticipants}
               onChange={handleChange}
               required
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             />
             <p className="text-xs text-slate-500 dark:text-white/60 mt-1">
               ระบุจำนวนคนที่ต้องการรับเข้ากิจกรรม (ไม่นับรวมผู้สร้าง)
@@ -433,11 +441,11 @@ export default function Create() {
           </div>
 
           <button 
-            className="w-full py-3 text-base font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60" 
+            className="w-full py-3 text-base font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed" 
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting || isLoading}
           >
-            {isLoading ? (
+            {isSubmitting || isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 Creating activity...
