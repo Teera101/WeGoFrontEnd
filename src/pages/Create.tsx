@@ -17,6 +17,11 @@ interface FormData {
   coverImage?: File;
 }
 
+const DEFAULT_COVERS = [
+  { id: 'concert', url: '/covers/concert.jpg', label: 'concert' },
+  { id: 'tutor', url: '/covers/tutor.jpg', label: 'tutor' },
+];
+
 export default function Create() {
   const { user } = useAuth();
   const { data } = useProfile();
@@ -31,11 +36,12 @@ export default function Create() {
     time: '',
     tags: [],
     maxParticipants: 2,
-    
   });
+
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewImage, setPreviewImage] = useState<string>('');
+  const [selectedDefault, setSelectedDefault] = useState<string>('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,7 +79,7 @@ export default function Create() {
       return;
     }
 
-    const maxSize = 5; // 5MB
+    const maxSize = 5;
     const sizeMb = file.size / (1024 * 1024);
     if (sizeMb > maxSize) {
       toast(`File too large (max ${maxSize} MB)`, 'error');
@@ -86,10 +92,22 @@ export default function Create() {
 
     const localUrl = URL.createObjectURL(file);
     setPreviewImage(localUrl);
+    setSelectedDefault('');
 
     setFormData((prev: FormData) => ({
       ...prev,
       coverImage: file
+    }));
+  };
+
+  const handleDefaultSelect = (url: string) => {
+    setSelectedDefault(url);
+    setPreviewImage('');
+    if (previewImage) URL.revokeObjectURL(previewImage);
+    
+    setFormData((prev) => ({
+      ...prev,
+      coverImage: undefined
     }));
   };
 
@@ -98,6 +116,7 @@ export default function Create() {
       URL.revokeObjectURL(previewImage);
     }
     setPreviewImage('');
+    setSelectedDefault('');
     setFormData((prev: FormData) => ({
       ...prev,
       coverImage: undefined
@@ -119,7 +138,8 @@ export default function Create() {
     }
 
     try {
-      let coverUrl = undefined;
+      let coverUrl = selectedDefault || undefined;
+
       if (formData.coverImage) {
         setUploading(true);
         const formDataUpload = new FormData();
@@ -209,44 +229,85 @@ export default function Create() {
             </span>
           </div>
 
-          <div>
+          <div className="space-y-4">
             <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="coverImage">Cover Image</label>
+            
             <div className="flex gap-4 items-start">
-              <div className="relative w-40 h-40 bg-slate-100 dark:bg-slate-700/30 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10">
-                {previewImage ? (
+              <div className="relative w-40 h-40 bg-slate-100 dark:bg-slate-700/30 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shrink-0">
+                {previewImage || selectedDefault ? (
                   <img
-                    src={previewImage}
+                    src={previewImage || selectedDefault}
                     alt="Activity cover"
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-                    📷
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500 flex-col gap-2">
+                    <span className="text-2xl">📷</span>
+                    <span className="text-xs">No image</span>
                   </div>
                 )}
               </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-5 py-2.5 font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300"
-                  disabled={isLoading}
-                >
-                  Choose Image
-                </button>
-                {previewImage && (
+              
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={removeImage}
-                    className="px-5 py-2.5 text-sm font-semibold border border-red-400/40 bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-300 rounded-lg transition-all duration-300"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300 shadow-sm"
+                    disabled={isLoading}
                   >
-                    Remove
+                    📤 Upload Photo
                   </button>
-                )}
+                  {(previewImage || selectedDefault) && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="px-4 py-2 text-sm font-semibold border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 rounded-lg transition-all duration-300"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Recommended: 1200×800px • Max 5MB<br />
+                  Recommended: 1200×800px • Max 5MB
                 </p>
+
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">Or choose a theme:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {DEFAULT_COVERS.map((cover) => (
+                      <button
+                        key={cover.id}
+                        type="button"
+                        onClick={() => handleDefaultSelect(cover.url)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 group ${
+                          selectedDefault === cover.url 
+                            ? 'border-amber-500 ring-2 ring-amber-500/30 scale-105 z-10' 
+                            : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img 
+                          src={cover.url} 
+                          alt={cover.label}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-black/60 text-[10px] text-white text-center py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {cover.label}
+                        </div>
+                        {selectedDefault === cover.url && (
+                          <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                            <div className="bg-amber-500 text-white rounded-full p-0.5">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+              
               <input
                 ref={fileInputRef}
                 type="file"
@@ -302,7 +363,6 @@ export default function Create() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="date">Date : </label>
-              {/* ✅ แก้ไข: เพิ่ม [color-scheme:light] dark:[color-scheme:dark] เพื่อแก้ปัญหาไอคอนปฏิทินมองไม่เห็น */}
               <input
                 type="date"
                 id="date"
@@ -316,7 +376,6 @@ export default function Create() {
             </div>
             <div>
               <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="time">Time : </label>
-              {/* ✅ แก้ไข: เพิ่ม [color-scheme:light] dark:[color-scheme:dark] เพื่อแก้ปัญหาไอคอนนาฬิกามองไม่เห็น */}
               <input
                 type="time"
                 id="time"
