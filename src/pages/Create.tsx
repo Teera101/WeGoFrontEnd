@@ -18,8 +18,12 @@ interface FormData {
 }
 
 const DEFAULT_COVERS = [
-  { id: 'concert', url: '/covers/concert.jpg', label: 'concert' },
-  { id: 'tutor', url: '/covers/tutor.jpg', label: 'tutor' },
+  { id: 'sport', url: '/covers/sport.jpg', label: 'Sports' },
+  { id: 'study', url: '/covers/study.jpg', label: 'Study' },
+  { id: 'party', url: '/covers/party.jpg', label: 'Party' },
+  { id: 'travel', url: '/covers/travel.jpg', label: 'Travel' },
+  { id: 'food', url: '/covers/food.jpg', label: 'Food' },
+  { id: 'chill', url: '/covers/meeting.jpg', label: 'Meeting' },
 ];
 
 export default function Create() {
@@ -100,15 +104,30 @@ export default function Create() {
     }));
   };
 
-  const handleDefaultSelect = (url: string) => {
-    setSelectedDefault(url);
-    setPreviewImage('');
-    if (previewImage) URL.revokeObjectURL(previewImage);
-    
-    setFormData((prev) => ({
-      ...prev,
-      coverImage: undefined
-    }));
+  const handleDefaultSelect = async (url: string) => {
+    try {
+      setSelectedDefault(url);
+      
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const fileName = url.split('/').pop() || 'default-cover.jpg';
+      const file = new File([blob], fileName, { type: blob.type });
+
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+      }
+      const localUrl = URL.createObjectURL(file);
+      setPreviewImage(localUrl);
+
+      setFormData((prev) => ({
+        ...prev,
+        coverImage: file
+      }));
+
+    } catch (error) {
+      console.error('Error processing default image:', error);
+      toast('Failed to load selected image', 'error');
+    }
   };
 
   const removeImage = () => {
@@ -138,7 +157,7 @@ export default function Create() {
     }
 
     try {
-      let coverUrl = selectedDefault || undefined;
+      let coverUrl = undefined;
 
       if (formData.coverImage) {
         setUploading(true);
