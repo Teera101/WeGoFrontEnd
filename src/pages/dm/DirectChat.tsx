@@ -43,6 +43,9 @@ export default function DirectChat() {
   const [membersWithProfiles, setMembersWithProfiles] = useState<any[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  const [typingUsers, setTypingUsers] = useState<{ userId: string; username: string }[]>([]);
+  const typingTimeoutRef = useRef<any>(null);
+
   const [relatedGroup, setRelatedGroup] = useState<any>(null);
 
   const [showReportModal, setShowReportModal] = useState(false);
@@ -50,7 +53,6 @@ export default function DirectChat() {
   const [showBannedModal, setShowBannedModal] = useState(false);
 
   const endRef = useRef<HTMLDivElement | null>(null);
-  // ✅ 1. เพิ่ม Ref สำหรับช่องพิมพ์
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -179,6 +181,19 @@ export default function DirectChat() {
       });
     };
 
+    const handleTyping = ({ userId, username }: { userId: string, username: string }) => {
+      if (userId !== user._id) {
+        setTypingUsers(prev => {
+          if (prev.some(u => u.userId === userId)) return prev;
+          return [...prev, { userId, username }];
+        });
+      }
+    };
+
+    const handleStopTyping = ({ userId }: { userId: string }) => {
+      setTypingUsers(prev => prev.filter(u => u.userId !== userId));
+    };
+
     const handleParticipantsUpdate = () => {
       fetchChat(); 
     };
@@ -194,6 +209,8 @@ export default function DirectChat() {
     socket.on('message:receive', handleNewMessage);
     socket.on('message:sent', handleMessageSent);
     socket.on('userStatusChanged', handleUserStatus);
+    socket.on('chat:typing', handleTyping);
+    socket.on('chat:stopTyping', handleStopTyping);
     socket.on('chat:participants', handleParticipantsUpdate);
     socket.on('chat:updated', handleChatUpdated);
     socket.on('chat:deleted', handleChatDeleted);
@@ -202,6 +219,8 @@ export default function DirectChat() {
       socket.off('message:receive', handleNewMessage);
       socket.off('message:sent', handleMessageSent);
       socket.off('userStatusChanged', handleUserStatus);
+      socket.off('chat:typing', handleTyping);
+      socket.off('chat:stopTyping', handleStopTyping);
       socket.off('chat:participants', handleParticipantsUpdate);
       socket.off('chat:updated', handleChatUpdated);
       socket.off('chat:deleted', handleChatDeleted);
@@ -211,7 +230,30 @@ export default function DirectChat() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, typingUsers]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+
+    if (user && uid) {
+      socket.emit('chat:typing', {
+        chatId: uid,
+        userId: user._id,
+        username: (user as any).username || user.email.split('@')[0]
+      });
+
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('chat:stopTyping', {
+          chatId: uid,
+          userId: user._id
+        });
+      }, 3000);
+    }
+  };
 
   const participantCount = (() => {
     if (membersWithProfiles) return membersWithProfiles.length;
@@ -231,6 +273,9 @@ export default function DirectChat() {
     const content = text.trim();
     if (!content || !user) return;
 
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    socket.emit('chat:stopTyping', { chatId: uid, userId: user._id });
+
     const tempMessage = {
       _id: `temp-${Date.now()}`,
       sender: {
@@ -246,7 +291,6 @@ export default function DirectChat() {
     setMessages((prev) => [...prev, tempMessage]);
     setText('');
     
-    // ✅ 2. สั่งรีเซ็ตความสูงของช่องพิมพ์กลับไปเป็น auto (50px)
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -453,20 +497,34 @@ export default function DirectChat() {
                     </div>
                   </div>
                 )}
+                
+                {typingUsers.length > 0 && (
+                  <div className="flex items-center gap-2 ml-14 animate-pulse">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div>
+                    </div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                      {typingUsers.length === 1 
+                        ? `${typingUsers[0].username} is typing...` 
+                        : `${typingUsers.length} people are typing...`}
+                    </span>
+                  </div>
+                )}
                 <div ref={endRef} />
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-amber-500/20">
                 <div className="flex gap-3 items-end">
                   <div className="flex-1 relative">
-                    {/* ✅ 3. ผูก Ref กับ Textarea */}
                     <textarea
                       ref={textareaRef}
                       className="w-full resize-none rounded-xl shadow-sm transition-all min-h-[50px] max-h-32 py-3 px-4 text-[15px] leading-relaxed
                         bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
                         dark:bg-slate-700/40 dark:border-slate-600/50 dark:text-white dark:placeholder-slate-400 dark:focus:border-amber-400/60 dark:focus:ring-amber-400/20"
                       value={text}
-                      onChange={(e) => setText(e.target.value)}
+                      onChange={handleInputChange}
                       placeholder="พิมพ์ข้อความ..."
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -476,11 +534,6 @@ export default function DirectChat() {
                       }}
                       rows={1}
                       style={{ height: 'auto', minHeight: '50px' }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-                      }}
                     />
                   </div>
                   <button 
