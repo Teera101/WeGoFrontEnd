@@ -321,7 +321,7 @@ export default function DirectChat() {
 
   if (isLoading) {
     return (
-      <section className="min-h-screen flex items-center justify-center py-4">
+      <section className="min-h-screen flex items-center justify-center py-4 bg-slate-50 dark:bg-slate-900">
         <div className="card p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-center shadow-lg">
           <div className="text-6xl mb-4 animate-pulse-subtle">💬</div>
           <div className="text-lg text-slate-600 dark:text-slate-300">Loading conversation...</div>
@@ -332,7 +332,7 @@ export default function DirectChat() {
 
   if (!chatInfo) {
     return (
-      <section className="min-h-screen flex items-center justify-center py-4">
+      <section className="min-h-screen flex items-center justify-center py-4 bg-slate-50 dark:bg-slate-900">
         <div className="card p-8 space-y-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-center max-w-md shadow-lg">
           <div className="text-6xl mb-4">😔</div>
           <div className="text-lg font-semibold text-slate-800 dark:text-white">Chat room not found</div>
@@ -497,8 +497,7 @@ export default function DirectChat() {
                     </div>
                   </div>
                 )}
-
-                {/* 🔥 ย้าย Typing Indicator มาไว้ในนี้ เพื่อให้เลื่อนตามข้อความ */}
+                
                 {typingUsers.length > 0 && (
                   <div className="flex items-center gap-2 ml-14 mb-2 animate-pulse">
                     <div className="flex space-x-1">
