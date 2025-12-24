@@ -7,6 +7,13 @@ import { Edit3 } from 'lucide-react';
 const BIO_MAX = 240;
 const AVATAR_MAX_MB = 5;
 
+const DEFAULT_AVATARS = [
+  { id: '1', url: '/avatars/proflie1.jpg',label: 'proflie1'},
+  { id: '2', url: '/avatars/proflie2.jpg',label: 'proflie1'},
+  { id: '3', url: '/avatars/proflie3.jpg',label: 'proflie1'},
+  { id: '4', url: '/avatars/proflie4.jpg',label: 'proflie1'},
+];
+
 async function compressImage(file: File, maxSide = 512, quality = 0.82): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
@@ -99,7 +106,7 @@ export default function Profile() {
         throw new Error('Authentication required');
       }
 
-  const response = await fetch(`${_apiBase}/api/profiles/avatar`, {
+      const response = await fetch(`${_apiBase}/api/profiles/avatar`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -119,7 +126,7 @@ export default function Profile() {
       setAvatar(data.avatarUrl);
       setUploading(false);
       setProgress(100);
-      toast('รูปโปรไฟล์อัปเดตสำเร็จ! ✨', 'success');
+      toast('Profile picture updated! ✨', 'success');
 
       if (localUrl) {
         const urlToRevoke: string = localUrl; 
@@ -142,6 +149,22 @@ export default function Profile() {
     }
   };
 
+  const handleDefaultSelect = async (url: string) => {
+    try {
+      setUploading(true);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const fileName = url.split('/').pop() || 'default-avatar.png';
+      const file = new File([blob], fileName, { type: blob.type });
+
+      await onSelectFile(file);
+    } catch (error) {
+      console.error('Error processing default image:', error);
+      toast('Failed to load selected image', 'error');
+      setUploading(false);
+    }
+  };
+
   const removeAvatar = async () => {
     try {
       if (avatar && avatar.startsWith('blob:')) {
@@ -153,7 +176,7 @@ export default function Profile() {
         throw new Error('Authentication required');
       }
 
-  const response = await fetch(`${_apiBase}/api/profiles/avatar`, {
+      const response = await fetch(`${_apiBase}/api/profiles/avatar`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -168,7 +191,7 @@ export default function Profile() {
 
       setAvatar('');
       await updateProfile({ name, bio, avatar: '' });
-      toast('รูปโปรไฟล์ถูกลบแล้ว', 'success');
+      toast('Profile picture removed', 'success');
     } catch (error) {
       console.error('Remove avatar error:', error);
       toast('Failed to remove picture', 'error');
@@ -182,7 +205,7 @@ export default function Profile() {
         return;
       }
       await updateProfile({ name, bio, avatar });
-      toast('โปรไฟล์อัปเดตสำเร็จ! ✨', 'success');
+      toast('Profile updated successfully! ✨', 'success');
       setIsEditingName(false);
       setIsEditingBio(false);
     } catch (error) {
@@ -225,21 +248,21 @@ export default function Profile() {
         </header>
 
         <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[320px,minmax(0,640px)] items-start justify-center">
-        <aside className="card p-5 space-y-4 self-start bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm dark:shadow-none">
+          <aside className="card p-5 space-y-4 self-start bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm dark:shadow-none">
             <h3 className="text-lg font-semibold text-amber-500 dark:text-amber-400 font-['Poppins']">Profile Picture</h3>
             
-            <div className="flex items-center gap-4">
-              <div className="relative h-24 w-24 shrink-0">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative h-32 w-32 shrink-0">
                 {avatar ? (
                   <>
                     <img
                       src={avatar}
                       alt="Avatar"
-                      className="h-24 w-24 rounded-full object-cover ring-2 ring-amber-400/40 hover:ring-amber-400/60 transition-all duration-300 contrast-110 brightness-105"
+                      className="h-32 w-32 rounded-full object-cover ring-4 ring-amber-400/40 hover:ring-amber-400/60 transition-all duration-300 contrast-110 brightness-105 shadow-md"
                     />
                   </>
                 ) : (
-                  <div className="grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 text-3xl font-semibold ring-2 ring-amber-400/40 text-slate-600 dark:text-white">
+                  <div className="grid h-32 w-32 place-items-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 text-4xl font-bold ring-4 ring-amber-400/40 text-slate-600 dark:text-white shadow-md">
                     {firstChar}
                   </div>
                 )}
@@ -253,20 +276,21 @@ export default function Profile() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={openFilePicker}
-                  className="rounded-lg px-5 py-2.5 font-semibold text-white bg-amber-500 hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 transition-all duration-300 disabled:opacity-60"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 transition-all duration-300 disabled:opacity-60 shadow-lg shadow-amber-500/20"
                   disabled={uploading}
                 >
-                  {uploading ? '⏳ กำลังอัปโหลด…' : '📸 Upload'}
+                  {uploading ? '⏳ Uploading...' : '📸 Upload Photo'}
                 </button>
                 {avatar && (
                   <button
                     onClick={removeAvatar}
-                    className="rounded-lg px-5 py-2.5 font-semibold border border-red-400/40 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/60 text-red-500 dark:text-red-300 transition-all duration-300"
+                    className="rounded-lg px-3 py-2 text-sm font-semibold border border-red-400/40 bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 transition-all duration-300"
+                    title="Remove photo"
                   >
-                    🗑️ Remove
+                    🗑️
                   </button>
                 )}
                 <input
@@ -276,20 +300,49 @@ export default function Profile() {
                   hidden
                   onChange={(e) => onSelectFile(e.target.files?.[0] || null)}
                 />
-                <p className="text-xs text-slate-500 dark:text-white/60">แนะนำไม่เกิน {AVATAR_MAX_MB}MB</p>
               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-white/10 pt-4 space-y-3">
-              <div className="text-base font-semibold text-amber-500 dark:text-amber-400">🔐 Your account</div>
-              <div className="space-y-1.5">
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">👤 {name}</div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">📧 {user.email}</div>
+            <div className="pt-4 border-t border-slate-200 dark:border-white/10">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
+                Or choose default
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {DEFAULT_AVATARS.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleDefaultSelect(item.url)}
+                    disabled={uploading}
+                    className={`relative rounded-full overflow-hidden aspect-square border-2 transition-all duration-200 group ${
+                      avatar === item.url || (avatar && avatar.includes(item.url))
+                        ? 'border-amber-500 ring-2 ring-amber-500/30 scale-110 z-10' 
+                        : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 hover:scale-105'
+                    }`}
+                  >
+                    <img 
+                      src={item.url} 
+                      alt={`Default ${item.id}`} 
+                      className="w-full h-full object-cover bg-slate-100 dark:bg-slate-700" 
+                    />
+                    {avatar === item.url && (
+                      <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                        <div className="bg-amber-500 text-white rounded-full p-0.5 shadow-sm">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
-        </aside>
 
-        <main className="card p-6 space-y-6 self-start w-full max-w-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm dark:shadow-none">
+            <div className="border-t border-slate-200 dark:border-white/10 pt-4 space-y-2 text-center">
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{name}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
+            </div>
+          </aside>
+
+          <main className="card p-6 space-y-6 self-start w-full max-w-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm dark:shadow-none">
             <h3 className="text-xl font-semibold text-amber-500 dark:text-amber-400 font-['Poppins']">✏️ Your Information</h3>
 
             <div className="space-y-2">
@@ -357,14 +410,14 @@ export default function Profile() {
 
             <div className="pt-4 border-t border-slate-200 dark:border-white/10">
               <button 
-                className="px-8 py-3 font-semibold text-white rounded-lg bg-amber-500 hover:bg-amber-400 transition-all duration-300 disabled:opacity-60" 
+                className="px-8 py-3 font-semibold text-white rounded-lg bg-amber-500 hover:bg-amber-400 transition-all duration-300 disabled:opacity-60 w-full md:w-auto shadow-lg shadow-amber-500/20" 
                 onClick={save} 
                 disabled={uploading}
               >
                 Confirm changes
               </button>
             </div>
-        </main>
+          </main>
         </div>
       </div>
     </section>
