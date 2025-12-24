@@ -497,25 +497,28 @@ export default function DirectChat() {
                     </div>
                   </div>
                 )}
+                <div ref={endRef} />
+              </div>
+
+              {/* 🔥 ปรับปรุง UI ส่วน Footer */}
+              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-amber-500/20 relative">
                 
+                {/* 🔥 ย้าย Typing Indicator มาไว้ที่นี่ (Absolute Position เหนือช่องพิมพ์) */}
                 {typingUsers.length > 0 && (
-                  <div className="flex items-center gap-2 ml-14 animate-pulse">
+                  <div className="absolute -top-6 left-0 flex items-center gap-2 animate-pulse">
                     <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div>
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div>
+                      <div className="w-1.5 h-1.5 bg-slate-500 dark:bg-amber-400 rounded-full animate-bounce"></div>
+                      <div className="w-1.5 h-1.5 bg-slate-500 dark:bg-amber-400 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-1.5 h-1.5 bg-slate-500 dark:bg-amber-400 rounded-full animate-bounce delay-150"></div>
                     </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 italic font-medium">
                       {typingUsers.length === 1 
                         ? `${typingUsers[0].username} is typing...` 
                         : `${typingUsers.length} people are typing...`}
                     </span>
                   </div>
                 )}
-                <div ref={endRef} />
-              </div>
 
-              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-amber-500/20">
                 <div className="flex gap-3 items-end">
                   <div className="flex-1 relative">
                     <textarea
