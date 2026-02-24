@@ -5,11 +5,42 @@ import { useEvents } from '../hooks/useEvents';
 import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+function LocationPin({ position, onPin }: { position: any, onPin: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onPin(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return position === null ? null : <Marker position={position}></Marker>;
+}
+
+function MapUpdater({ center }: { center: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, 15);
+    }
+  }, [center, map]);
+  return null;
+}
 
 interface FormData {
   title: string;
   description: string;
   location: string;
+  locationDetails: string;
+  coordinates: { lat: number; lng: number } | null;
   date: string;
   time: string;
   tags: string[];
@@ -18,7 +49,7 @@ interface FormData {
 }
 
 const DEFAULT_COVERS = [
-  { id: 'concert', url: '/covers/concert.jpg', label: 'concert' },
+  { id: 'concert', url: '/covers/concert.jpg', label: 'Concert' },
   { id: 'study', url: '/covers/study.jpg', label: 'Study' },
 ];
 
@@ -32,6 +63,8 @@ export default function Create() {
     title: '',
     description: '',
     location: '',
+    locationDetails: '',
+    coordinates: null,
     date: '',
     time: '',
     tags: [],
@@ -43,6 +76,11 @@ export default function Create() {
   const [progress, setProgress] = useState(0);
   const [previewImage, setPreviewImage] = useState<string>('');
   const [selectedDefault, setSelectedDefault] = useState<string>('');
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,12 +95,64 @@ export default function Create() {
     };
   }, [previewImage]);
 
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.trim().length > 2) {
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&accept-language=th`)
+          .then(res => res.json())
+          .then(data => {
+            setSuggestions(data);
+            setShowSuggestions(true);
+          })
+          .catch(() => setSuggestions([]));
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev: FormData) => ({
       ...prev,
       [name]: name === 'maxParticipants' ? parseInt(value) || 2 : value
     }));
+  };
+
+  const handleSelectSuggestion = (place: any) => {
+    const lat = parseFloat(place.lat);
+    const lng = parseFloat(place.lon);
+    
+    setFormData(prev => ({
+      ...prev,
+      coordinates: { lat, lng },
+      location: place.display_name
+    }));
+    
+    setSearchQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleMapPin = async (lat: number, lng: number) => {
+    setFormData(prev => ({ ...prev, coordinates: { lat, lng } }));
+    
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=th`);
+      const data = await response.json();
+      
+      if (data && data.display_name) {
+        setFormData(prev => ({
+          ...prev,
+          coordinates: { lat, lng },
+          location: data.display_name
+        }));
+      }
+    } catch (error) {
+    }
   };
 
   const userName = useMemo(
@@ -76,14 +166,14 @@ export default function Create() {
   const handleImageSelect = async (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast('Please select an image file', 'error');
+      toast('กรุณาเลือกไฟล์รูปภาพ', 'error');
       return;
     }
 
     const maxSize = 5;
     const sizeMb = file.size / (1024 * 1024);
     if (sizeMb > maxSize) {
-      toast(`File too large (max ${maxSize} MB)`, 'error');
+      toast(`ไฟล์มีขนาดใหญ่เกินไป (สูงสุด ${maxSize} MB)`, 'error');
       return;
     }
 
@@ -122,8 +212,7 @@ export default function Create() {
       }));
 
     } catch (error) {
-      console.error('Error processing default image:', error);
-      toast('Failed to load selected image', 'error');
+      toast('ไม่สามารถโหลดรูปภาพที่เลือกได้', 'error');
     }
   };
 
@@ -146,12 +235,12 @@ export default function Create() {
 
     if (!formData.title || !formData.description || !formData.location || 
         !formData.date || !formData.time) {
-      toast('Please fill in all required fields', 'error');
+      toast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error');
       return;
     }
 
     if (formData.maxParticipants < 2) {
-      toast('Minimum 2 participants required', 'error');
+      toast('ต้องมีผู้เข้าร่วมขั้นต่ำ 2 คน', 'error');
       return;
     }
 
@@ -186,26 +275,27 @@ export default function Create() {
           setProgress(100);
           if (previewImage) {
             setTimeout(() => {
-              try {
-                URL.revokeObjectURL(previewImage);
-              } catch (err) {
-              }
+              try { URL.revokeObjectURL(previewImage); } catch (err) {}
             }, 300);
             setPreviewImage('');
           }
         } catch (uploadError) {
-          console.error('Image upload error:', uploadError);
-          toast('Failed to upload image. Creating activity without image...', 'error');
+          toast('อัปโหลดรูปภาพไม่สำเร็จ กำลังสร้างกิจกรรมโดยไม่มีรูปภาพ...', 'error');
         } finally {
           setUploading(false);
           setProgress(0);
         }
       }
 
+      // ส่ง location เป็น Object สะอาดๆ 
       const eventData = {
         title: formData.title,
         description: formData.description,
-        location: formData.location,
+        location: {
+          address: formData.location,
+          details: formData.locationDetails || '',
+          coordinates: formData.coordinates ? [formData.coordinates.lng, formData.coordinates.lat] : []
+        },
         date: formData.date + 'T' + formData.time + ':00.000Z',
         time: formData.time,
         tags: formData.tags,
@@ -213,11 +303,10 @@ export default function Create() {
         cover: coverUrl
       };
 
-      await createEvent(eventData);
+      await createEvent(eventData as any);
       toast('กิจกรรมถูกสร้างเรียบร้อยแล้ว 🎉', 'success');
       navigate('/explore');
     } catch (error: any) {
-      console.error('Create event error:', error);
       toast('ไม่สามารถสร้างกิจกรรมได้', 'error');
       setIsSubmitting(false);
     }
@@ -233,9 +322,9 @@ export default function Create() {
             </svg>
           </div>
           <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-slate-800 via-blue-600 to-slate-800 dark:from-white dark:via-pink-300 dark:to-amber-400 bg-clip-text text-transparent font-['Poppins']">
-            Create Activity
+            สร้างกิจกรรม
           </h2>
-          <p className="text-slate-600 dark:text-slate-400">Share your interests and meet like-minded people</p>
+          <p className="text-slate-600 dark:text-slate-400">แบ่งปันความสนใจและพบปะผู้คนที่มีความชอบเหมือนกัน</p>
         </header>
 
         <div className="w-full max-w-3xl mx-auto">
@@ -244,14 +333,14 @@ export default function Create() {
           className="card p-6 space-y-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm dark:shadow-none"
         >
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
-            <h3 className="text-lg font-semibold text-amber-500 dark:text-amber-400 font-['Poppins']">Activity Details</h3>
+            <h3 className="text-lg font-semibold text-amber-500 dark:text-amber-400 font-['Poppins']">รายละเอียดกิจกรรม</h3>
             <span className="text-sm text-slate-600 dark:text-slate-300">
-              Creator: <span className="font-medium text-amber-500 dark:text-amber-400">{userName}</span>
+              ผู้สร้าง: <span className="font-medium text-amber-500 dark:text-amber-400">{userName}</span>
             </span>
           </div>
 
           <div className="space-y-4">
-            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="coverImage">Cover Image</label>
+            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="coverImage">รูปภาพหน้าปก</label>
             
             <div className="flex gap-4 items-start">
               <div className="relative w-40 h-40 bg-slate-100 dark:bg-slate-700/30 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shrink-0">
@@ -264,7 +353,7 @@ export default function Create() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500 flex-col gap-2">
                     <span className="text-2xl">📷</span>
-                    <span className="text-xs">No image</span>
+                    <span className="text-xs">ไม่มีรูปภาพ</span>
                   </div>
                 )}
               </div>
@@ -277,7 +366,7 @@ export default function Create() {
                     className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-400 rounded-lg transition-all duration-300 shadow-sm"
                     disabled={isSubmitting || isLoading}
                   >
-                    📤 Upload Photo
+                    📤 อัปโหลดรูปภาพ
                   </button>
                   {(previewImage || selectedDefault) && (
                     <button
@@ -286,17 +375,17 @@ export default function Create() {
                       className="px-4 py-2 text-sm font-semibold border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 rounded-lg transition-all duration-300"
                       disabled={isSubmitting || isLoading}
                     >
-                      Remove
+                      ลบรูปภาพ
                     </button>
                   )}
                 </div>
                 
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Recommended: 1200×800px • Max 5MB
+                  ขนาดที่แนะนำ: 1200×800px • สูงสุด 5MB
                 </p>
 
                 <div className="mt-2">
-                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">Or choose a theme:</p>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">หรือเลือกจากธีม:</p>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     {DEFAULT_COVERS.map((cover) => (
                       <button
@@ -342,12 +431,12 @@ export default function Create() {
           </div>
 
           <div>
-            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="title">Activity Name : </label>
+            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="title">ชื่อกิจกรรม : </label>
             <input
               id="title"
               name="title"
               className="input bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
-              placeholder="Enter activity name"
+              placeholder="กรอกชื่อกิจกรรม"
               value={formData.title}
               onChange={handleChange}
               required
@@ -356,12 +445,12 @@ export default function Create() {
           </div>
 
           <div>
-            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="description">Description :</label>
+            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="description">รายละเอียด :</label>
             <textarea
               id="description"
               name="description"
               className="input h-24 bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
-              placeholder="Briefly describe your activity"
+              placeholder="อธิบายกิจกรรมของคุณสั้นๆ"
               value={formData.description}
               onChange={handleChange}
               required
@@ -369,23 +458,108 @@ export default function Create() {
             />
           </div>
 
-          <div>
-            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="location">Location : </label>
-            <input
-              id="location"
-              name="location"
-              className="input bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
-              placeholder="Enter the activity location"
-              value={formData.location}
-              onChange={handleChange}
-              required
-              disabled={isSubmitting || isLoading}
-            />
+          <div className="p-4 bg-slate-50 dark:bg-slate-700/20 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <h4 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              สถานที่จัดกิจกรรม
+            </h4>
+            
+            <div className="pt-2">
+              <label className="label font-medium text-slate-700 dark:text-slate-200">ค้นหาและปักหมุดบนแผนที่ :</label>
+              
+              <div className="relative mb-3 mt-1">
+                <input
+                  type="text"
+                  className="input w-full bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
+                  placeholder="พิมพ์ชื่อสถานที่ จังหวัด หรือประเทศ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  disabled={isSubmitting || isLoading}
+                />
+                
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute z-[1000] top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                      <li
+                        key={i}
+                        className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer text-sm text-slate-700 dark:text-slate-200 border-b last:border-0 border-slate-100 dark:border-slate-700/50 flex items-start gap-2"
+                        onClick={() => handleSelectSuggestion(s)}
+                      >
+                        <span className="mt-0.5">📍</span>
+                        <span className="line-clamp-2">{s.display_name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">หรือคลิกบนแผนที่เพื่อเลือกตำแหน่งที่ตั้งด้วยตัวเอง</p>
+              
+              <div className="h-[300px] w-full rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-600 relative z-0">
+                <MapContainer center={[13.7563, 100.5018]} zoom={11} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <LocationPin 
+                    position={formData.coordinates} 
+                    onPin={handleMapPin} 
+                  />
+                  <MapUpdater center={formData.coordinates ? [formData.coordinates.lat, formData.coordinates.lng] : null} />
+                </MapContainer>
+              </div>
+              
+              {formData.coordinates && (
+                <div className="flex items-center justify-between mt-2 px-1">
+                  <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    📍 ปักหมุดแล้ว ({formData.coordinates.lat.toFixed(4)}, {formData.coordinates.lng.toFixed(4)})
+                  </p>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, coordinates: null, location: '' }));
+                      setSearchQuery('');
+                    }}
+                    className="text-sm text-red-500 hover:text-red-600 underline"
+                  >
+                    ลบหมุด
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="location">ชื่อสถานที่ / ที่อยู่ :</label>
+              <input
+                id="location"
+                name="location"
+                className="input bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
+                placeholder="ชื่อสถานที่ที่ได้จากการปักหมุด หรือพิมพ์เพิ่มเติม..."
+                value={formData.location}
+                onChange={handleChange}
+                required
+                disabled={isSubmitting || isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="locationDetails">รายละเอียดจุดสังเกตเพิ่มเติม (ถ้ามี) :</label>
+              <textarea
+                id="locationDetails"
+                name="locationDetails"
+                className="input h-20 bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300"
+                placeholder="เช่น รอที่หน้าร้านกาแฟ, จุดสังเกตคือ..."
+                value={formData.locationDetails}
+                onChange={handleChange}
+                disabled={isSubmitting || isLoading}
+              />
+            </div>
+
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="date">Date : </label>
+              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="date">วันที่ : </label>
               <input
                 type="date"
                 id="date"
@@ -398,7 +572,7 @@ export default function Create() {
               />
             </div>
             <div>
-              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="time">Time : </label>
+              <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="time">เวลา : </label>
               <input
                 type="time"
                 id="time"
@@ -412,7 +586,7 @@ export default function Create() {
             </div>
           </div>
           <div>
-            <div className="label font-medium text-slate-700 dark:text-slate-200">🏷️ Tags</div>
+            <div className="label font-medium text-slate-700 dark:text-slate-200">🏷️ ป้ายกำกับ (Tags)</div>
             <TagSelector 
               value={formData.tags} 
               onChange={(newTags) => setFormData((prev: FormData) => ({ ...prev, tags: newTags }))}
@@ -421,7 +595,7 @@ export default function Create() {
           </div>
 
           <div>
-            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="maxParticipants">Max Participants</label>
+            <label className="label font-medium text-slate-700 dark:text-slate-200" htmlFor="maxParticipants">จำนวนผู้เข้าร่วมสูงสุด</label>
             <input
               type="number"
               id="maxParticipants"
@@ -448,10 +622,10 @@ export default function Create() {
             {isSubmitting || isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Creating activity...
+                กำลังสร้างกิจกรรม...
               </>
             ) : (
-              <>Create Activity</>
+              <>สร้างกิจกรรม</>
             )}
           </button>
         </form>
