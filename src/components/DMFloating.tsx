@@ -8,11 +8,36 @@ export default function DMFloating() {
 
   const msgs = isOpen && openPeer ? getMsgs(openPeer.uid) : [];
   
+  const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+      return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
+    }
+    return 'http://localhost:10000/api';
+  };
+
   useEffect(() => {
     if (isOpen && openPeer) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      
+      const markAsRead = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          await fetch(`${getApiUrl()}/chat-status/read-dm/${openPeer.uid}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          const currentUnread = JSON.parse(localStorage.getItem('unreadChatIds') || '[]');
+          const updatedUnread = currentUnread.filter((id: string) => id !== openPeer.uid);
+          localStorage.setItem('unreadChatIds', JSON.stringify(updatedUnread));
+          window.dispatchEvent(new CustomEvent('chat-status-update', { detail: updatedUnread }));
+        } catch (e) {}
+      };
+      
+      markAsRead();
     }
-  }, [msgs, isOpen, openPeer]);
+  }, [msgs.length, isOpen, openPeer]);
 
   if (!isOpen || !openPeer) return null;
 
@@ -25,15 +50,10 @@ export default function DMFloating() {
 
   return (
     <div className="fixed bottom-6 right-6 w-96 z-50 animate-slide-in-right">
-      {/* Container หลัก:
-          - Light: สีขาว ขอบเทา (สะอาด)
-          - Dark: สีเทาเข้มเกือบดำ (Slate-900) ขอบเทาเข้ม (Slate-700) -> ทึบและเนียนตา
-      */}
       <div className="flex flex-col h-[600px] rounded-2xl shadow-2xl overflow-hidden 
         bg-white border border-slate-200 
         dark:bg-slate-900 dark:border-slate-700">
         
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 
           bg-white/95 border-b border-slate-200 backdrop-blur-md
           dark:bg-slate-800 dark:border-slate-700 dark:backdrop-blur-none shadow-sm">
@@ -75,8 +95,6 @@ export default function DMFloating() {
             className="w-8 h-8 rounded-lg transition-all duration-300 flex items-center justify-center group
               hover:bg-slate-100 text-slate-400 hover:text-red-500
               dark:hover:bg-slate-700 dark:text-slate-400 dark:hover:text-red-400"
-            aria-label="Close"
-            title="Close"
           >
             <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -84,11 +102,7 @@ export default function DMFloating() {
           </button>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 thin-scrollbar
-          bg-slate-50
-          dark:bg-slate-900">
-          
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 thin-scrollbar bg-slate-50 dark:bg-slate-900">
           {msgs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
               <div className="relative">
@@ -125,12 +139,6 @@ export default function DMFloating() {
                         </div>
                       )}
                       <div>
-                        {/* Bubble:
-                           - Mine: สีส้ม (Amber) เสมอ
-                           - Theirs: 
-                             - Light: ขาว ขอบเทา
-                             - Dark: เทาเข้ม (Slate-800) ขอบเทา (Slate-700)
-                        */}
                         <div
                           className={`px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-300 ${
                             mine
@@ -156,11 +164,7 @@ export default function DMFloating() {
           )}
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 
-          bg-white border-t border-slate-200
-          dark:bg-slate-800 dark:border-t dark:border-slate-700">
-          
+        <div className="p-4 bg-white border-t border-slate-200 dark:bg-slate-800 dark:border-t dark:border-slate-700">
           <div className="flex gap-3 items-end">
             <div className="flex-1 relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
@@ -176,10 +180,7 @@ export default function DMFloating() {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="พิมพ์ข้อความ…"
                 rows={1}
-                style={{
-                  minHeight: '44px',
-                  maxHeight: '120px'
-                }}
+                style={{ minHeight: '44px', maxHeight: '120px' }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
                   target.style.height = 'auto';
@@ -197,7 +198,6 @@ export default function DMFloating() {
               className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:via-amber-500 hover:to-amber-600 text-white font-semibold shadow-xl shadow-amber-500/40 hover:shadow-amber-500/60 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transform hover:scale-105 active:scale-95 flex items-center justify-center shrink-0"
               onClick={handleSend}
               disabled={!text.trim()}
-              title="Send message (Enter)"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 ml-0.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
