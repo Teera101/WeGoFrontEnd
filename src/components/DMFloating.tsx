@@ -20,7 +20,7 @@ export default function DMFloating() {
     if (isOpen && openPeer) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       
-      const markAsRead = async () => {
+      const timer = setTimeout(async () => {
         try {
           const token = localStorage.getItem('token');
           await fetch(`${getApiUrl()}/chat-status/read-dm/${openPeer.uid}`, {
@@ -31,11 +31,13 @@ export default function DMFloating() {
           const currentUnread = JSON.parse(localStorage.getItem('unreadChatIds') || '[]');
           const updatedUnread = currentUnread.filter((id: string) => id !== openPeer.uid);
           localStorage.setItem('unreadChatIds', JSON.stringify(updatedUnread));
+          
           window.dispatchEvent(new CustomEvent('chat-status-update', { detail: updatedUnread }));
+          window.dispatchEvent(new CustomEvent('force-chat-status-fetch'));
         } catch (e) {}
-      };
-      
-      markAsRead();
+      }, 800);
+
+      return () => clearTimeout(timer);
     }
   }, [msgs.length, isOpen, openPeer]);
 

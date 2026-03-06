@@ -37,13 +37,15 @@ export default function Navbar() {
   useEffect(() => {
     if (!user) return;
     
+    let isMounted = true;
+    
     const fetchChatStatus = async () => {
       try {
         const token = localStorage.getItem('token');
         const res = await fetch(`${getApiUrl()}/chat-status/unread`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const data = await res.json();
           setUnreadChatCount(data.totalUnread || 0);
           setChatDetails(data.details || []);
@@ -55,7 +57,15 @@ export default function Navbar() {
 
     fetchChatStatus();
     const interval = setInterval(fetchChatStatus, 3000);
-    return () => clearInterval(interval);
+
+    const handleForceFetch = () => fetchChatStatus();
+    window.addEventListener('force-chat-status-fetch', handleForceFetch);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('force-chat-status-fetch', handleForceFetch);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -80,6 +90,7 @@ export default function Navbar() {
       });
       localStorage.setItem('unreadChatIds', JSON.stringify([]));
       window.dispatchEvent(new CustomEvent('chat-status-update', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('force-chat-status-fetch'));
     } catch (error) {}
   };
 
@@ -99,7 +110,7 @@ export default function Navbar() {
       navigate(`/dm/${chat.chatId}`);
     } else {
       openDM({
-        uid: chat.targetUid,
+        uid: chat.targetUid || chat.chatId,
         name: chat.name,
         avatar: chat.chatAvatar || chat.senderAvatar || '', 
         isOnline: true
@@ -108,17 +119,22 @@ export default function Navbar() {
 
     try {
       const token = localStorage.getItem('token');
-      if (chat.type === 'direct_msg' || chat.type === 'direct') {
-        await fetch(`${getApiUrl()}/chat-status/read-dm/${chat.targetUid}`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      let url = '';
+      if (chat.type === 'direct' || chat.type === 'direct_msg') {
+        const target = chat.targetUid || chat.chatId;
+        url = `${getApiUrl()}/chat-status/read-dm/${target}`;
       } else {
-        await fetch(`${getApiUrl()}/chat-status/read-chat/${chat.chatId}`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        url = `${getApiUrl()}/chat-status/read-chat/${chat.chatId}`;
       }
+      
+      await fetch(url, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      window.dispatchEvent(new CustomEvent('force-chat-status-fetch'));
     } catch(e) {}
   };
 
