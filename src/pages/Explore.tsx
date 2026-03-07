@@ -13,6 +13,7 @@ export default function Explore() {
   
   const [q, setQ] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'all' | 'joined'>('all');
   
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -51,6 +52,17 @@ export default function Explore() {
 
   const filtered = useMemo(() => {
     let arr: Event[] = [...events];
+
+    if (viewMode === 'joined' && user) {
+      arr = arr.filter((ev) => {
+        return ev.participants?.some((p: any) => {
+          if (!p) return false;
+          const pid = typeof p === 'string' ? p : (p.user?._id || p.user);
+          return pid === user._id;
+        });
+      });
+    }
+
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       arr = arr.filter((e) => 
@@ -61,7 +73,7 @@ export default function Explore() {
     }
     if (tags.length) arr = arr.filter((e) => tags.every((t) => e.tags.includes(t)));
     return arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [q, tags, events]);
+  }, [q, tags, events, viewMode, user]);
 
   const handleEditClick = (eventData: any) => {
     setEditingEvent(eventData);
@@ -99,6 +111,36 @@ export default function Explore() {
             </p>
           </div>
         </header>
+
+        <div className="flex justify-center">
+          <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md p-1.5 rounded-2xl inline-flex border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+            <button
+              onClick={() => setViewMode('all')}
+              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                viewMode === 'all' 
+                  ? 'bg-amber-500 text-white shadow-md' 
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              กิจกรรมทั้งหมด
+            </button>
+            <button
+              onClick={() => {
+                if (!user) {
+                  return;
+                }
+                setViewMode('joined');
+              }}
+              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                viewMode === 'joined' 
+                  ? 'bg-amber-500 text-white shadow-md' 
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              กิจกรรมที่เข้าร่วม
+            </button>
+          </div>
+        </div>
 
         <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 rounded-2xl p-6 shadow-sm sticky top-4 z-30 transition-all duration-300">
           <TagFilterBar allTags={ALL_TAGS} active={tags} onToggle={toggleTag} query={q} onQuery={setQ} />
@@ -186,11 +228,12 @@ export default function Explore() {
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">
               ลองปรับคำค้นหา หรือลบตัวกรองบางอย่างออกดูนะ หรือจะเริ่มสร้างกิจกรรมใหม่เองเลยก็ได้!
             </p>
-            {(q || tags.length > 0) && (
+            {(q || tags.length > 0 || viewMode === 'joined') && (
               <button
                 onClick={() => {
                   setQ('');
                   setTags([]);
+                  setViewMode('all');
                 }}
                 className="px-8 py-3 bg-slate-800 hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105"
               >

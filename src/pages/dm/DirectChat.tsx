@@ -206,14 +206,6 @@ export default function DirectChat() {
         navigate('/explore');
     };
 
-    const handleChatKicked = ({ userId }: { userId: string }) => {
-      if (userId === user._id) {
-        navigate('/explore');
-      } else {
-        fetchChat();
-      }
-    };
-
     socket.on('message:receive', handleNewMessage);
     socket.on('message:sent', handleMessageSent);
     socket.on('userStatusChanged', handleUserStatus);
@@ -222,7 +214,6 @@ export default function DirectChat() {
     socket.on('chat:participants', handleParticipantsUpdate);
     socket.on('chat:updated', handleChatUpdated);
     socket.on('chat:deleted', handleChatDeleted);
-    socket.on('chat:kicked', handleChatKicked);
 
     return () => {
       socket.off('message:receive', handleNewMessage);
@@ -233,7 +224,6 @@ export default function DirectChat() {
       socket.off('chat:participants', handleParticipantsUpdate);
       socket.off('chat:updated', handleChatUpdated);
       socket.off('chat:deleted', handleChatDeleted);
-      socket.off('chat:kicked', handleChatKicked);
       socket.emit('chat:leave', uid);
     };
   }, [uid, user]);
@@ -331,16 +321,10 @@ export default function DirectChat() {
 
   if (isLoading) {
     return (
-      <section className="min-h-screen py-8">
-        <div className="container-app">
-          <div className="flex flex-col gap-6 max-w-7xl mx-auto h-[calc(100vh-140px)]">
-            <div className="flex-1 card p-8 flex items-center justify-center bg-white dark:bg-slate-800 border-none shadow-sm">
-              <div className="text-center space-y-4">
-                <div className="text-6xl animate-pulse-subtle opacity-70">💬</div>
-                <div className="text-lg text-slate-500 dark:text-slate-400 font-medium">Loading conversation...</div>
-              </div>
-            </div>
-          </div>
+      <section className="min-h-screen flex items-center justify-center py-4 bg-slate-50 dark:bg-slate-900">
+        <div className="card p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-center shadow-lg">
+          <div className="text-6xl mb-4 animate-pulse-subtle">💬</div>
+          <div className="text-lg text-slate-600 dark:text-slate-300">Loading conversation...</div>
         </div>
       </section>
     );
@@ -348,17 +332,13 @@ export default function DirectChat() {
 
   if (!chatInfo) {
     return (
-      <section className="min-h-screen py-8">
-        <div className="container-app">
-          <div className="flex flex-col gap-6 max-w-7xl mx-auto">
-            <div className="card p-12 text-center bg-white dark:bg-slate-800">
-              <div className="text-6xl mb-4">😔</div>
-              <div className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Chat room not found</div>
-              <Link to="/explore" className="inline-flex px-6 py-3 font-semibold text-white rounded-lg bg-amber-500 hover:bg-amber-400 transition-all duration-300">
-                Back to Explore
-              </Link>
-            </div>
-          </div>
+      <section className="min-h-screen flex items-center justify-center py-4 bg-slate-50 dark:bg-slate-900">
+        <div className="card p-8 space-y-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-center max-w-md shadow-lg">
+          <div className="text-6xl mb-4">😔</div>
+          <div className="text-lg font-semibold text-slate-800 dark:text-white">Chat room not found</div>
+          <Link to="/explore" className="inline-flex px-6 py-3 font-semibold text-white rounded-lg bg-amber-500 hover:bg-amber-400 transition-all duration-300">
+            Back to Explore
+          </Link>
         </div>
       </section>
     );
@@ -517,7 +497,7 @@ export default function DirectChat() {
                     </div>
                   </div>
                 )}
-                
+
                 {typingUsers.length > 0 && (
                   <div className="flex items-center gap-2 ml-14 mb-2 animate-pulse">
                     <div className="flex space-x-1">
