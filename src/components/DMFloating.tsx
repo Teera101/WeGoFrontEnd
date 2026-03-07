@@ -35,7 +35,7 @@ export default function DMFloating() {
           window.dispatchEvent(new CustomEvent('chat-status-update', { detail: updatedUnread }));
           window.dispatchEvent(new CustomEvent('force-chat-status-fetch'));
         } catch (e) {}
-      }, 800);
+      }, 500);
 
       return () => clearTimeout(timer);
     }

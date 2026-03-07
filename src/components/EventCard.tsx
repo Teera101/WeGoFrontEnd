@@ -41,6 +41,8 @@ interface EventCardProps {
     time?: string;
     popularity?: number;
     participantsCount?: number;
+    chat?: any;
+    chatId?: any;
   };
   maxParticipants?: number;
   isParticipant?: boolean;
@@ -64,6 +66,38 @@ export default function EventCard({
   const [isJoining, setIsJoining] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  
+  const rawChatId = chatId || event.chat || event.chatId;
+  const actualChatId = typeof rawChatId === 'object' && rawChatId !== null 
+    ? (rawChatId as any)._id?.toString() || rawChatId.toString() 
+    : rawChatId?.toString();
+
+  const [hasUnreadChat, setHasUnreadChat] = useState(() => {
+    if (!actualChatId) return false;
+    try {
+      const unreadIds = JSON.parse(localStorage.getItem('unreadChatIds') || '[]');
+      return unreadIds.includes(actualChatId);
+    } catch(e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!actualChatId) return;
+    
+    const handleChatStatus = (e: any) => {
+      const unreadIds = e.detail || [];
+      setHasUnreadChat(unreadIds.includes(actualChatId));
+    };
+
+    try {
+      const unreadIds = JSON.parse(localStorage.getItem('unreadChatIds') || '[]');
+      if(unreadIds.includes(actualChatId)) setHasUnreadChat(true);
+    } catch(e) {}
+
+    window.addEventListener('chat-status-update', handleChatStatus);
+    return () => window.removeEventListener('chat-status-update', handleChatStatus);
+  }, [actualChatId]);
 
   const parsedLocation = useMemo(() => {
     if (!event.location) return null;
@@ -171,10 +205,52 @@ export default function EventCard({
   const effectiveCount = computedParticipants;
   const joinBlockedForNonCreator = maxParticipants ? effectiveCount >= maxParticipants : false;
 
+  const getBaseUrl = () => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+      return envUrl.replace(/\/api\/?$/i, '');
+    }
+    return 'http://localhost:10000';
+  };
+
+  const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+      return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
+    }
+    return 'http://localhost:10000/api';
+  };
+
+  const handleChatClick = () => {
+    if (actualChatId) {
+      setHasUnreadChat(false);
+      try {
+        const currentUnread = JSON.parse(localStorage.getItem('unreadChatIds') || '[]');
+        const updatedUnread = currentUnread.filter((id: string) => id !== actualChatId);
+        localStorage.setItem('unreadChatIds', JSON.stringify(updatedUnread));
+        window.dispatchEvent(new CustomEvent('chat-status-update', { detail: updatedUnread }));
+      } catch(e) {}
+      
+      navigate(`/dm/${actualChatId}`);
+
+      try {
+        const token = localStorage.getItem('token');
+        fetch(`${getApiUrl()}/chats/${actualChatId}/read`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({ messageIds: [] })
+        });
+      } catch(e) {}
+    }
+  };
+
   let coverImage = undefined as string | undefined;
   if (event.cover) {
     if (event.cover.startsWith('/') && !event.cover.startsWith('blob:')) {
-      coverImage = `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/i, '')}${event.cover}`;
+      coverImage = `${getBaseUrl()}${event.cover}`;
     } else {
       coverImage = event.cover;
     }
@@ -270,16 +346,22 @@ export default function EventCard({
           <div className="pt-5 mt-auto flex gap-3">
             {isParticipant ? (
               <>
-                {chatId && (
+                {actualChatId && (
                   <button
-                    onClick={() => navigate(`/dm/${chatId}`)}
-                    className="flex-1 px-4 py-2 text-sm rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md hover:shadow-blue-500/30 transition-all duration-200 flex items-center justify-center gap-2"
+                    onClick={handleChatClick}
+                    className="relative flex-1 px-4 py-2 text-sm rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md hover:shadow-blue-500/30 transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
                       <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
                     </svg>
                     แชท
+                    {hasUnreadChat && (
+                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 border-2 border-white dark:border-slate-800"></span>
+                      </span>
+                    )}
                   </button>
                 )}
                 
@@ -385,7 +467,7 @@ export default function EventCard({
             {parsedLocation.lat !== null && parsedLocation.lng !== null && (
               <div className="shrink-0 px-4 sm:px-5 py-4 border-t border-slate-100 dark:border-slate-700/50">
                 <a 
-                  href={`https://www.google.com/maps?q=loc:${parsedLocation.lat},${parsedLocation.lng}`}
+                  href={`https://www.google.com/maps?q=${parsedLocation.lat},${parsedLocation.lng}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold rounded-xl transition-all duration-300 shadow-md"
