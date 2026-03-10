@@ -3,15 +3,16 @@ import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '../components/Toasts';
 import { Edit3 } from 'lucide-react';
+import { ALL_TAGS } from '../lib/demoData';
 
 const BIO_MAX = 240;
 const AVATAR_MAX_MB = 5;
 
 const DEFAULT_AVATARS = [
-  { id: '1', url: '/avatars/proflie1.jpg',label: 'proflie1'},
-  { id: '2', url: '/avatars/proflie2.jpg',label: 'proflie1'},
-  { id: '3', url: '/avatars/proflie3.jpg',label: 'proflie1'},
-  { id: '4', url: '/avatars/proflie4.jpg',label: 'proflie1'},
+  { id: '1', url: '/avatars/proflie1.jpg', label: 'proflie1' },
+  { id: '2', url: '/avatars/proflie2.jpg', label: 'proflie2' },
+  { id: '3', url: '/avatars/proflie3.jpg', label: 'proflie3' },
+  { id: '4', url: '/avatars/proflie4.jpg', label: 'proflie4' },
 ];
 
 async function compressImage(file: File, maxSide = 512, quality = 0.82): Promise<Blob> {
@@ -36,6 +37,8 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [userTags, setUserTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -54,6 +57,9 @@ export default function Profile() {
       setName(data?.name || emailPrefix);
       setBio(data?.bio || '');
       setAvatar(data?.avatar || '');
+      
+      const cleanedTags = (data?.tags || []).map(t => t.replace(/^#/, ''));
+      setUserTags(cleanedTags);
     }
   }, [data, user]);
 
@@ -120,10 +126,10 @@ export default function Profile() {
         throw new Error('Failed to upload avatar');
       }
 
-      const data = await response.json();
+      const uploadData = await response.json();
       
-      await updateProfile({ name, bio, avatar: data.avatarUrl });
-      setAvatar(data.avatarUrl);
+      await updateProfile({ name, bio, avatar: uploadData.avatarUrl, tags: userTags });
+      setAvatar(uploadData.avatarUrl);
       setUploading(false);
       setProgress(100);
       toast('Profile picture updated! ✨', 'success');
@@ -133,8 +139,7 @@ export default function Profile() {
         setTimeout(() => {
           try {
             URL.revokeObjectURL(urlToRevoke);
-          } catch (err) {
-          }
+          } catch (err) {}
         }, 300);
       }
     } catch (error: any) {
@@ -144,7 +149,6 @@ export default function Profile() {
       setAvatar('');
       setUploading(false);
       setProgress(0);
-      console.error('Upload error:', error);
       toast('Failed to upload image. Please try again.', 'error');
     }
   };
@@ -159,7 +163,6 @@ export default function Profile() {
 
       await onSelectFile(file);
     } catch (error) {
-      console.error('Error processing default image:', error);
       toast('Failed to load selected image', 'error');
       setUploading(false);
     }
@@ -190,10 +193,9 @@ export default function Profile() {
       }
 
       setAvatar('');
-      await updateProfile({ name, bio, avatar: '' });
+      await updateProfile({ name, bio, avatar: '', tags: userTags });
       toast('Profile picture removed', 'success');
     } catch (error) {
-      console.error('Remove avatar error:', error);
       toast('Failed to remove picture', 'error');
     }
   };
@@ -204,14 +206,33 @@ export default function Profile() {
         toast(`Bio exceeds ${BIO_MAX} characters`, 'error');
         return;
       }
-      await updateProfile({ name, bio, avatar });
+      await updateProfile({ name, bio, avatar, tags: userTags });
       toast('Profile updated successfully! ✨', 'success');
       setIsEditingName(false);
       setIsEditingBio(false);
     } catch (error) {
-      console.error('Update profile error:', error);
       toast('Failed to update profile', 'error');
     }
+  };
+
+  const toggleTag = (rawTag: string) => {
+    const cleanTag = rawTag.replace(/^#/, '');
+    setUserTags((prev) => 
+      prev.includes(cleanTag) ? prev.filter((t) => t !== cleanTag) : [...prev, cleanTag]
+    );
+  };
+
+  const handleAddCustomTag = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && 'key' in e && (e as React.KeyboardEvent).key !== 'Enter') return;
+    if (e) e.preventDefault();
+    
+    const cleanTag = customTag.trim().replace(/^#/, '');
+    if (!cleanTag) return;
+    
+    if (!userTags.includes(cleanTag)) {
+      setUserTags(prev => [...prev, cleanTag]);
+    }
+    setCustomTag('');
   };
 
   if (!user) {
@@ -406,6 +427,74 @@ export default function Profile() {
                 </button>
               </div>
               <div className="text-right text-xs text-slate-500 dark:text-slate-400 font-medium">{bio.length}/{BIO_MAX} ตัวอักษร</div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/10">
+              <label className="label font-medium text-slate-700 dark:text-slate-200 text-lg">🏷️ ความสนใจของคุณ (Tags)</label>
+              
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input flex-1 transition-all duration-300 bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50"
+                  placeholder="พิมพ์แท็กที่สนใจ (เช่น ดูหนัง, เล่นเกม) แล้วกด Enter หรือปุ่มเพิ่ม"
+                  value={customTag}
+                  onChange={(e) => setCustomTag(e.target.value)}
+                  onKeyDown={handleAddCustomTag}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomTag}
+                  className="px-5 py-2 font-semibold text-white rounded-xl bg-slate-800 hover:bg-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500 transition-all shadow-sm"
+                >
+                  เพิ่ม
+                </button>
+              </div>
+
+              <div className="p-4 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-xl space-y-2 min-h-[80px]">
+                <div className="text-xs font-semibold text-amber-600 dark:text-amber-500 mb-2">แท็กที่เลือกแล้ว ({userTags.length}):</div>
+                {userTags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {userTags.map((tag) => {
+                      const cleanTag = tag.replace(/^#/, '');
+                      return (
+                        <span key={cleanTag} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg text-sm font-medium shadow-sm animate-fade-in">
+                          #{cleanTag}
+                          <button type="button" onClick={() => toggleTag(cleanTag)} className="hover:text-red-200 hover:scale-110 transition-all focus:outline-none">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500 dark:text-slate-400 italic">
+                    ยังไม่ได้เลือกแท็ก... กดเลือกด้านล่าง หรือพิมพ์เพิ่มเองได้เลย
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">เลือกจากแท็กยอดฮิต:</div>
+                <div className="flex flex-wrap gap-2 p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-200 dark:border-transparent">
+                  {ALL_TAGS.map((tag) => {
+                    const cleanTag = tag.replace(/^#/, '');
+                    const isSelected = userTags.some(t => t.replace(/^#/, '') === cleanTag);
+                    
+                    if (isSelected) return null;
+
+                    return (
+                      <button
+                        key={cleanTag}
+                        type="button"
+                        onClick={() => toggleTag(cleanTag)}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-amber-400 dark:hover:border-amber-500 hover:scale-105 shadow-sm"
+                      >
+                        +{cleanTag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-200 dark:border-white/10">

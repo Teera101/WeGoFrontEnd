@@ -9,12 +9,14 @@ export type Profile = {
   name: string;
   avatar?: string;
   bio?: string;
+  tags?: string[];
 };
 
 export type UpdateProfileData = {
   name: string;
   bio?: string;
   avatar?: string;
+  tags?: string[];
 };
 
 export function useProfile(userId?: string) {
@@ -30,21 +32,21 @@ export function useProfile(userId?: string) {
         const res = await profileAPI.get(currentUserId);
         return res.data;
       } catch (error: any) {
-        // Return default profile if API not found (404)
         if (error.response?.status === 404) {
           return {
             userId: currentUserId,
             name: user?.email || 'User',
             bio: '',
-            avatar: ''
+            avatar: '',
+            tags: []
           };
         }
         throw error;
       }
     },
     enabled: !!currentUserId,
-    retry: false, // Don't retry on failure
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: false, 
+    staleTime: 5 * 60 * 1000, 
   });
 
   const updateProfile = useMutation({

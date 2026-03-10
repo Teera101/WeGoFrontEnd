@@ -13,8 +13,9 @@ interface Activity {
   status: string;
   createdAt: string;
   coverImage?: string;
-  cover?: string; // Field ชื่อ cover ใน database
+  cover?: string;
   images?: string[];
+  isImportant?: boolean;
 }
 
 export default function ActivityManagement() {
@@ -24,12 +25,11 @@ export default function ActivityManagement() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [usingPublicApi, setUsingPublicApi] = useState(false);
 
-  // Reset scroll on mount
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const [usingPublicApi, setUsingPublicApi] = useState(false);
 
   useEffect(() => {
     fetchActivities();
@@ -38,36 +38,15 @@ export default function ActivityManagement() {
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      // Log token for debugging
       const token = localStorage.getItem('token');
-      console.log('Token exists:', !!token);
-      console.log('Token preview:', token?.substring(0, 20) + '...');
-
-      // Try admin endpoint first, fallback to public endpoint if unauthorized
+      
       try {
-        console.log('Attempting to fetch from admin endpoint...');
         const response = await api.get('/admin/activities');
-        console.log('Admin API success! Activities:', response.data.activities?.length);
-        // Debug: log sample payload to inspect createdBy shape
-        try {
-          console.log('Admin activities payload (sample):', response.data.activities && response.data.activities.length ? response.data.activities[0] : null);
-        } catch (e) {
-          console.log('Could not stringify activities payload', e);
-        }
         setActivities(response.data.activities || []);
         setUsingPublicApi(false);
       } catch (adminError: any) {
-        console.error('Admin API error:', {
-          status: adminError.response?.status,
-          message: adminError.response?.data?.message || adminError.response?.data?.error,
-          error: adminError.message
-        });
-
-        // If admin endpoint fails (401/403), try public endpoint
         if (adminError.response?.status === 401 || adminError.response?.status === 403) {
-          console.log('Admin endpoint failed, using public endpoint');
           const response = await api.get('/activities');
-          console.log('Public API success! Activities:', response.data.activities?.length);
           setActivities(response.data.activities || []);
           setUsingPublicApi(true);
         } else {
@@ -75,15 +54,11 @@ export default function ActivityManagement() {
         }
       }
     } catch (error) {
-      console.error('Error fetching activities:', error);
-      // Try public endpoint as last resort
       try {
-        console.log('Final fallback to public endpoint...');
         const response = await api.get('/activities');
         setActivities(response.data.activities || []);
         setUsingPublicApi(true);
       } catch (fallbackError) {
-        console.error('All endpoints failed:', fallbackError);
       }
     } finally {
       setLoading(false);
@@ -101,8 +76,21 @@ export default function ActivityManagement() {
         setSelectedActivity(null);
       }
     } catch (error) {
-      console.error('Error deleting activity:', error);
       alert('Failed to delete activity');
+    }
+  };
+
+  const handleToggleImportant = async (activityId: string, currentStatus: boolean | undefined) => {
+    try {
+      await api.put(`/admin/activities/${activityId}/important`);
+      setActivities(activities.map(a => 
+        a._id === activityId ? { ...a, isImportant: !currentStatus } : a
+      ));
+      if (selectedActivity?._id === activityId) {
+        setSelectedActivity({ ...selectedActivity, isImportant: !currentStatus });
+      }
+    } catch (error) {
+      alert('Failed to update important status');
     }
   };
 
@@ -123,31 +111,25 @@ export default function ActivityManagement() {
     return matchesSearch && matchesCategory;
   });
 
-  // Helper function to get location string
   const getLocationString = (location?: string | { address?: string; coordinates?: { lat: number; lng: number } }): string => {
     if (!location) return 'Not specified';
     if (typeof location === 'string') return location;
     return location.address || 'Not specified';
   };
 
-  // Helper function to check if location has valid coordinates
   const hasValidCoordinates = (location?: string | { address?: string; coordinates?: { lat: number; lng: number } }): boolean => {
     if (!location || typeof location === 'string') return false;
     const coords = location.coordinates;
     return !!(coords && typeof coords.lat === 'number' && typeof coords.lng === 'number' && !isNaN(coords.lat) && !isNaN(coords.lng));
   };
 
-  // Helper function to get activity image
   const getActivityImage = (activity: Activity): string | null => {
-    // Try coverImage first
     if (activity.coverImage && !activity.coverImage.startsWith('blob:')) {
       return activity.coverImage;
     }
-    // Try cover field
     if (activity.cover && !activity.cover.startsWith('blob:')) {
       return activity.cover;
     }
-    // Try first image from images array
     if (activity.images && activity.images.length > 0) {
       const validImage = activity.images.find(img => !img.startsWith('blob:'));
       if (validImage) return validImage;
@@ -155,7 +137,6 @@ export default function ActivityManagement() {
     return null;
   };
 
-  // Helper to get creator display name robustly
   const getCreatorDisplay = (activity: Activity): string => {
     const cb: any = (activity as any).createdBy;
     if (!cb) return 'Unknown';
@@ -181,7 +162,6 @@ export default function ActivityManagement() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-full space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 font-['Poppins']">Activity Management</h1>
@@ -200,7 +180,6 @@ export default function ActivityManagement() {
         </div>
       </div>
 
-      {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-transparent border border-emerald-500/30 rounded-2xl p-4 sm:p-5 hover:shadow-xl hover:shadow-emerald-500/20 transition-all duration-300 group cursor-pointer hover:scale-105">
           <div className="flex flex-col gap-2">
@@ -264,7 +243,6 @@ export default function ActivityManagement() {
         </div>
       </div>
 
-      {/* Search & Filter */}
       <div className="bg-gradient-to-br from-primary-800/60 via-primary-700/40 to-primary-800/60 backdrop-blur-xl border border-primary-600/50 rounded-2xl p-5 sm:p-6 shadow-2xl">
         <div className="relative group">
           <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 group-hover:scale-110 transition-transform"></i>
@@ -278,7 +256,6 @@ export default function ActivityManagement() {
         </div>
       </div>
 
-      {/* Activities Table */}
       <div className="bg-gradient-to-br from-primary-800/60 via-primary-700/40 to-primary-800/60 backdrop-blur-xl border border-primary-600/50 rounded-2xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -300,10 +277,6 @@ export default function ActivityManagement() {
                   <i className="fas fa-user-circle mr-1 sm:mr-2"></i>
                   <span className="hidden xl:inline">Creator</span>
                 </th>
-                <th className="text-left py-4 px-4 lg:px-6 text-cyan-300 font-bold text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">
-                  <i className="fas fa-calendar mr-1 sm:mr-2"></i>
-                  <span>Created</span>
-                </th>
                 <th className="text-right py-4 px-4 lg:px-6 text-gray-300 font-bold text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap">
                   <i className="fas fa-cog mr-1 sm:mr-2"></i>
                   <span className="hidden sm:inline">Actions</span>
@@ -313,7 +286,7 @@ export default function ActivityManagement() {
             <tbody>
               {filteredActivities.length > 0 ? (
                 filteredActivities.map((activity) => (
-                  <tr key={activity._id} className="border-t border-primary-600/30 hover:bg-gradient-to-r hover:from-primary-700/40 hover:to-transparent transition-all duration-200 group">
+                  <tr key={activity._id} className={`border-t border-primary-600/30 transition-all duration-200 group ${activity.isImportant ? 'bg-amber-500/5' : 'hover:bg-gradient-to-r hover:from-primary-700/40 hover:to-transparent'}`}>
                     <td className="py-3 px-4 lg:px-6">
                       <div className="flex items-center gap-2 sm:gap-3">
                         {getActivityImage(activity) ? (
@@ -331,7 +304,10 @@ export default function ActivityManagement() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-white font-bold text-xs sm:text-sm group-hover:text-emerald-300 transition-colors truncate">{activity.title}</p>
+                          <p className="text-white font-bold text-xs sm:text-sm group-hover:text-emerald-300 transition-colors truncate flex items-center gap-2">
+                            {activity.isImportant && <i className="fas fa-star text-amber-400 drop-shadow-lg" title="Important Activity"></i>}
+                            {activity.title}
+                          </p>
                           <p className="text-primary-400 text-xs truncate hidden sm:block">{activity.description}</p>
                           <span className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-xs font-bold ${activity.status === 'published'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -365,19 +341,19 @@ export default function ActivityManagement() {
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 lg:px-6 text-cyan-300/80 text-xs sm:text-sm font-medium hidden xl:table-cell">
-                      <div className="flex flex-col">
-                        <span className="flex items-center gap-1 sm:gap-2">
-                          <i className="fas fa-calendar-alt"></i>
-                          {new Date(activity.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="text-xs text-primary-400">
-                          {new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </td>
                     <td className="py-3 px-4 lg:px-6">
                       <div className="flex items-center justify-end gap-1 sm:gap-2">
+                        <button
+                          onClick={() => handleToggleImportant(activity._id, activity.isImportant)}
+                          title={activity.isImportant ? "Remove Important Status" : "Mark as Important"}
+                          className={`px-2 sm:px-3 py-2 rounded-xl text-xs font-bold transition-all border hover:scale-105 group/btn ${
+                            activity.isImportant 
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30' 
+                              : 'bg-primary-700/50 text-primary-400 border-primary-600/40 hover:text-amber-300 hover:border-amber-500/40'
+                          }`}
+                        >
+                          <i className={`fas fa-star ${activity.isImportant ? '' : 'group-hover/btn:scale-110'} transition-transform`}></i>
+                        </button>
                         <button
                           onClick={() => handleViewActivity(activity)}
                           title="View activity"
@@ -411,12 +387,10 @@ export default function ActivityManagement() {
         </div>
       </div>
 
-      {/* View Modal */}
       {showModal && selectedActivity && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-gradient-to-br from-primary-800 via-primary-900 to-primary-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-primary-600/50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-primary-700/90 to-primary-800/90 backdrop-blur-xl border-b border-primary-600/50 px-6 py-4 flex justify-between items-center">
+            <div className="sticky top-0 bg-gradient-to-r from-primary-700/90 to-primary-800/90 backdrop-blur-xl border-b border-primary-600/50 px-6 py-4 flex justify-between items-center z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/40 to-blue-500/40 flex items-center justify-center">
                   <i className="fas fa-layer-group text-emerald-300"></i>
@@ -431,9 +405,14 @@ export default function ActivityManagement() {
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-6 space-y-6">
-              {/* Cover Image */}
+              {selectedActivity.isImportant && (
+                <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/50 rounded-xl p-3 flex items-center gap-3 animate-pulse">
+                  <i className="fas fa-star text-amber-400 text-xl"></i>
+                  <span className="text-amber-300 font-bold uppercase tracking-wider">Admin Highlighted Activity</span>
+                </div>
+              )}
+
               {getActivityImage(selectedActivity) && (
                 <div className="rounded-2xl overflow-hidden ring-2 ring-emerald-500/30 shadow-2xl">
                   <img
@@ -447,7 +426,6 @@ export default function ActivityManagement() {
                 </div>
               )}
 
-              {/* All Images Gallery (if multiple) */}
               {selectedActivity.images && selectedActivity.images.length > 1 && (
                 <div className="grid grid-cols-3 gap-3">
                   {selectedActivity.images.map((img, idx) => (
@@ -465,7 +443,6 @@ export default function ActivityManagement() {
                 </div>
               )}
 
-              {/* Title & Description */}
               <div className="bg-gradient-to-br from-primary-700/50 to-primary-800/30 rounded-2xl p-6 border border-primary-600/30">
                 <label className="text-emerald-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                   <i className="fas fa-heading"></i> Title
@@ -478,9 +455,7 @@ export default function ActivityManagement() {
                 <p className="text-primary-300 leading-relaxed">{selectedActivity.description}</p>
               </div>
 
-              {/* Info Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Location */}
                 <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-xl p-4 border border-amber-500/20">
                   <label className="text-amber-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                     <i className="fas fa-map-marker-alt"></i> Location
@@ -495,7 +470,6 @@ export default function ActivityManagement() {
                     )}
                 </div>
 
-                {/* Max Participants */}
                 <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-xl p-4 border border-blue-500/20">
                   <label className="text-blue-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                     <i className="fas fa-users"></i> Max Participants
@@ -503,7 +477,6 @@ export default function ActivityManagement() {
                   <p className="text-white font-semibold text-2xl">{selectedActivity.maxParticipants}</p>
                 </div>
 
-                {/* Current Participants */}
                 <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 rounded-xl p-4 border border-cyan-500/20">
                   <label className="text-cyan-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                     <i className="fas fa-user-friends"></i> Current Participants
@@ -522,7 +495,6 @@ export default function ActivityManagement() {
                   </p>
                 </div>
 
-                {/* Created Date */}
                 <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 rounded-xl p-4 border border-pink-500/20">
                   <label className="text-pink-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                     <i className="fas fa-calendar-alt"></i> Created Date
@@ -534,7 +506,6 @@ export default function ActivityManagement() {
                 </div>
               </div>
 
-              {/* Creator Info */}
               <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-xl p-4 border border-purple-500/20">
                 <label className="text-purple-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
                   <i className="fas fa-user-circle"></i> Created By
@@ -552,13 +523,17 @@ export default function ActivityManagement() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t border-primary-600/30">
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-primary-600/30">
                 <button
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-primary-700/50 to-primary-600/30 text-white font-bold uppercase tracking-wider hover:from-primary-700/70 hover:to-primary-600/50 transition-all border border-primary-600/40 hover:scale-105"
+                  onClick={() => handleToggleImportant(selectedActivity._id, selectedActivity.isImportant)}
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold uppercase tracking-wider transition-all border hover:scale-105 ${
+                    selectedActivity.isImportant 
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30' 
+                      : 'bg-primary-700/50 text-amber-300 border-amber-500/40 hover:bg-amber-500/20'
+                  }`}
                 >
-                  <i className="fas fa-times mr-2"></i>Close
+                  <i className="fas fa-star mr-2"></i>
+                  {selectedActivity.isImportant ? 'Remove Highlight' : 'Mark as Important'}
                 </button>
                 <button
                   onClick={() => {
@@ -566,7 +541,7 @@ export default function ActivityManagement() {
                       handleDeleteActivity(selectedActivity._id);
                     }
                   }}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-500/30 to-pink-500/20 text-red-300 font-bold uppercase tracking-wider hover:from-red-500/40 hover:to-pink-500/30 transition-all border border-red-500/40 hover:scale-105 hover:shadow-lg hover:shadow-red-500/20"
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-red-500/30 to-pink-500/20 text-red-300 font-bold uppercase tracking-wider hover:from-red-500/40 hover:to-pink-500/30 transition-all border border-red-500/40 hover:scale-105 hover:shadow-lg hover:shadow-red-500/20"
                 >
                   <i className="fas fa-trash mr-2"></i>Delete Activity
                 </button>
