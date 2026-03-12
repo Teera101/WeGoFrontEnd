@@ -25,14 +25,14 @@ export default function ForgotPassword() {
 
     try {
       setLoading(true);
-      // Backend จะส่ง OTP ไปที่เมลเท่านั้น (ไม่มี devOTP กลับมาแล้ว)
       await api.post('/auth/forgot-password', { email });
       
       toast('ส่งรหัส OTP ไปยังอีเมลของคุณแล้ว', 'success');
       setStep('otp');
     } catch (error: any) {
-      const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
-      toast(serverMessage || 'เกิดข้อผิดพลาด', 'error');
+      const resData = error?.response?.data;
+      const serverMessage = resData?.message || resData?.error || error.message || 'เกิดข้อผิดพลาดในการส่ง OTP';
+      toast(serverMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,8 @@ export default function ForgotPassword() {
       toast('รีเซ็ตรหัสผ่านสำเร็จ 🎉', 'success');
       navigate('/auth/signin');
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || 'เกิดข้อผิดพลาด';
+      const resData = error?.response?.data;
+      const errorMsg = resData?.message || resData?.error || error.message || 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน';
       toast(errorMsg, 'error');
     } finally {
       setLoading(false);
@@ -69,18 +70,15 @@ export default function ForgotPassword() {
   return (
     <section className="min-h-[calc(100vh-4rem)] flex items-start justify-center pt-6 px-4">
       <div className="w-full max-w-md">
-        {/* Card Frame ที่ปรับให้เหมือน SignIn/SignUp */}
         <div className="card p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-amber-500/20 shadow-2xl shadow-slate-200 dark:shadow-amber-500/10 transition-colors duration-200">
           
           <header className="text-center mb-8">
-            {/* Icon Box */}
             <div className="inline-block p-3 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl mb-4 shadow-lg shadow-orange-500/30">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             
-            {/* Gradient Text Title */}
             <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-slate-800 via-orange-600 to-amber-500 dark:from-white dark:via-orange-300 dark:to-amber-400 bg-clip-text text-transparent font-['Poppins']">
               {step === 'email' ? 'Forgot Password' : 'Reset Password'}
             </h2>
@@ -101,7 +99,6 @@ export default function ForgotPassword() {
                 <input
                   id="email"
                   type="email"
-                  // ใช้สไตล์ Input เดียวกับ SignIn
                   className="input bg-slate-100 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600/50 text-slate-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all duration-300 placeholder:text-slate-400"
                   placeholder="name@example.com"
                   value={email}
@@ -143,7 +140,6 @@ export default function ForgotPassword() {
           {step === 'otp' && (
             <form onSubmit={handleResetPassword} className="space-y-5">
               
-              {/* Email Badge */}
               <div className="bg-slate-100 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600/50 rounded-xl p-4 flex items-center gap-3">
                 <div className="p-2 bg-white dark:bg-slate-600/50 rounded-full shrink-0 shadow-sm">
                   <span className="text-lg">📧</span>
