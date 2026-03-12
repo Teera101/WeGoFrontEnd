@@ -307,11 +307,8 @@ export default function EventCard({
                   <div className="flex items-center gap-2 text-xs font-medium bg-white/95 dark:bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl shadow-sm text-slate-700 dark:text-white w-fit border border-slate-100/20">
                     <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
                     <span>
-                      {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' })}
-                      {(() => {
-                        const t = event.time || new Date(event.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok', hour12: false });
-                        return t && t !== '00:00' ? ` • ${t} น.` : '';
-                      })()}
+                      {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {event.time ? ` • ${event.time} น.` : ''}
                     </span>
                   </div>
                 )}

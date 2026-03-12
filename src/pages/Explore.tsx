@@ -178,7 +178,7 @@ export default function Explore() {
               <div className="absolute inset-0 border-4 border-slate-200 dark:border-slate-700 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <div className="mt-6 text-xl font-bold text-slate-700 dark:text-slate-200 animate-pulse">กำลังโหลดกิจกรรม...</div>
+            <div className="mt-6 text-sm font-bold text-slate-700 dark:text-slate-200 animate-pulse">กำลังโหลดกิจกรรม...</div>
           </div>
         ) : filtered.length ? (
           <div className="space-y-10">
@@ -230,6 +230,7 @@ export default function Explore() {
                             tags: ev.tags,
                             location: ev.location,
                             date: ev.date,
+                            time: ev.time,
                             participantsCount: participantsCount,
                             popularity: popularity
                           }}
@@ -250,7 +251,7 @@ export default function Explore() {
             <div className="space-y-6">
               {importantEvents.length > 0 && (
                 <div className="flex items-center gap-3 px-2 pt-4">
-                  <h3 className="font-bold text-slate-500 dark:text-slate-400 font-['Poppins'] uppercase tracking-widest text-sm">Other Activities</h3>
+                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 font-['Poppins'] uppercase tracking-widest">Other Activities</h3>
                   <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
                 </div>
               )}
@@ -289,6 +290,7 @@ export default function Explore() {
                           tags: ev.tags,
                           location: ev.location,
                           date: ev.date,
+                          time: ev.time,
                           participantsCount: participantsCount,
                           popularity: popularity
                         }}
