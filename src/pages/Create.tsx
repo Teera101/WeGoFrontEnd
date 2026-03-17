@@ -295,7 +295,7 @@ export default function Create() {
           details: formData.locationDetails || '',
           coordinates: formData.coordinates ? [formData.coordinates.lng, formData.coordinates.lat] : []
         },
-        date: formData.date + 'T' + formData.time + ':00.000Z',
+        date: formData.date,
         time: formData.time,
         tags: formData.tags,
         maxParticipants: formData.maxParticipants,
