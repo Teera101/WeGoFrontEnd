@@ -28,11 +28,14 @@ export default function ResetPasswordConfirm() {
     window.scrollTo(0, 0);
   }, []);
 
-  const tooShort = pass.length > 0 && pass.length < 6;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+  const tooShort = pass.length > 0 && pass.length < 8;
+  const invalidFormat = pass.length > 0 && !passwordRegex.test(pass);
   const mismatch = pass2.length > 0 && pass !== pass2;
-  const showPassErr = touchedPass && tooShort;
+  
+  const showPassErr = touchedPass && (tooShort || invalidFormat);
   const showPass2Err = touchedPass2 && mismatch;
-  const canSubmit = pass.length >= 6 && pass2.length >= 6 && pass === pass2 && !!token && !loading;
+  const canSubmit = pass.length >= 8 && pass2.length >= 8 && pass === pass2 && !!token && !loading && passwordRegex.test(pass);
 
   useEffect(() => {
     (async () => {
@@ -47,7 +50,6 @@ export default function ResetPasswordConfirm() {
         setEmail(response.data.email);
         setStage('ready');
       } catch (error: any) {
-        console.error('[verifyResetToken]', error);
         setStage('error');
         setReason(error?.response?.data?.message || 'Invalid or expired token');
       }
@@ -68,7 +70,6 @@ export default function ResetPasswordConfirm() {
       setStage('done');
       nav('/auth/signin');
     } catch (error: any) {
-      console.error('[resetPasswordConfirm]', error);
       toast(error?.response?.data?.message || 'Failed to reset password');
     } finally {
       setLoading(false);
@@ -123,11 +124,13 @@ export default function ResetPasswordConfirm() {
             value={pass}
             onChange={(e) => setPass(e.target.value)}
             onBlur={() => setTouchedPass(true)}
-            placeholder="At least 6 characters"
+            placeholder="Min 8 chars (A-Z, a-z, 0-9, !@#)"
             autoComplete="new-password"
           />
           {showPassErr && (
-            <div className="text-xs text-red-500 dark:text-red-300">Password must be at least 6 characters long</div>
+            <div className="text-xs text-red-500 dark:text-red-300">
+              รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร ประกอบด้วยพิมพ์เล็ก พิมพ์ใหญ่ ตัวเลข และอักขระพิเศษ
+            </div>
           )}
 
           <label className="label text-slate-700 dark:text-slate-200" htmlFor="pass2">Confirm Password</label>

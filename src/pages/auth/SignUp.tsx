@@ -20,8 +20,18 @@ export default function SignUp() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast('โปรดกรอกชื่อ', 'error');
+    
+    const usernameRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
+    if (!usernameRegex.test(name) || name.includes(' ')) {
+      return toast('ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ ห้ามเว้นวรรค (ใช้อักษรพิเศษได้)', 'error');
+    }
+
     if (!email.trim()) return toast('โปรดกรอกอีเมล', 'error');
-    if (pw.length < 6) return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร', 'error');
+    
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!passwordRegex.test(pw)) {
+      return toast('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร ประกอบด้วยพิมพ์เล็ก พิมพ์ใหญ่ ตัวเลข และอักขระพิเศษ', 'error');
+    }
 
     try {
       setLoading(true);
@@ -31,11 +41,9 @@ export default function SignUp() {
     } catch (err: any) {
       const message = err?.message || '';
       if (message.includes('duplicate')) {
-        toast('อีเมลนี้มีบัญชีอยู่แล้ว • กด "Sign in" หรือ "Reset password"', 'error');
+        toast('อีเมลหรือชื่อผู้ใช้นี้มีในระบบแล้ว • กด "Sign in" หรือ "Reset password"', 'error');
       } else if (message.includes('email')) {
         toast('อีเมลไม่ถูกต้อง', 'error');
-      } else if (message.includes('password')) {
-        toast('รหัสผ่านน้อยเกินไป (อย่างน้อย 6 ตัวอักษร)', 'error');
       } else {
         toast(`สมัครไม่สำเร็จ: ${err?.message || 'Unknown error'}`, 'error');
       }
@@ -68,7 +76,7 @@ export default function SignUp() {
             <input
               id="username"
               className="input bg-slate-100 dark:bg-slate-700/50 border-slate-400 dark:border-slate-600/50 text-slate-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all duration-300 placeholder:text-slate-400"
-              placeholder="Your username"
+              placeholder="English only, no spaces"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
@@ -98,7 +106,7 @@ export default function SignUp() {
               <input
                 id="password"
                 className="input bg-slate-100 dark:bg-slate-700/50 border-slate-400 dark:border-slate-600/50 text-slate-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 pr-12 transition-all duration-300 placeholder:text-slate-400"
-                placeholder="At least 6 characters"
+                placeholder="Min 8 chars (A-Z, a-z, 0-9, !@#)"
                 type={showPw ? 'text' : 'password'}
                 value={pw}
                 onChange={(e) => setPw(e.target.value)}
