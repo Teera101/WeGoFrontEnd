@@ -287,7 +287,6 @@ export default function Create() {
         }
       }
 
-      // ส่ง location เป็น Object สะอาดๆ 
       const eventData = {
         title: formData.title,
         description: formData.description,
@@ -566,6 +565,7 @@ export default function Create() {
                 name="date"
                 className="input bg-white dark:bg-slate-700/30 border border-slate-300 dark:border-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:ring-2 focus:ring-amber-400/50 transition-all duration-300 [color-scheme:light] dark:[color-scheme:dark]"
                 value={formData.date}
+                min={new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })}
                 onChange={handleChange}
                 required
                 disabled={isSubmitting || isLoading}
