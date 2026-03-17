@@ -34,50 +34,39 @@ export default function UserManagement() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
-
-  // Reset scroll on mount
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+  
   useEffect(() => {
     fetchUsers();
     
-    // Connect socket and authenticate user
     const initSocket = async () => {
       if (!socket.connected) {
         socket.connect();
       }
 
-      // Get current user ID from localStorage or API
       const token = localStorage.getItem('token');
       if (token) {
         try {
           const response = await api.get('/auth/me');
           const currentUserId = response.data._id;
           
-          // Join socket with user ID
           socket.emit('user:join', currentUserId);
-          console.log('Admin joined socket with ID:', currentUserId);
         } catch (error) {
-          console.error('Error getting current user:', error);
         }
       }
     };
 
     initSocket();
 
-    // Listen for user status updates
     socket.on('userStatusChanged', ({ userId, isOnline }: { userId: string; isOnline: boolean }) => {
-      console.log('User status changed:', userId, isOnline ? '🟢 ONLINE' : '⚫ OFFLINE');
-      
-      // Update users list
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
           user._id === userId ? { ...user, isOnline } : user
         )
       );
       
-      // Update selected user in modal if it's open
       setSelectedUser((prevSelected) =>
         prevSelected && prevSelected._id === userId
           ? { ...prevSelected, isOnline }
@@ -85,7 +74,6 @@ export default function UserManagement() {
       );
     });
 
-    // Cleanup
     return () => {
       socket.off('userStatusChanged');
     };
@@ -97,14 +85,12 @@ export default function UserManagement() {
       const response = await api.get('/admin/users');
       setUsers(response.data.users || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleBlockUser = async (userId: string, isBlocked: boolean) => {
-    // ตรวจสอบว่าไม่ใช่ตัวเอง
     try {
       const response = await api.get('/auth/me');
       const currentUserId = response.data._id;
@@ -114,10 +100,8 @@ export default function UserManagement() {
         return;
       }
     } catch (error) {
-      console.error('Error checking current user:', error);
     }
 
-    // Confirmation message
     const user = users.find(u => u._id === userId);
     const confirmMessage = isBlocked 
       ? `Unblock ${user?.email || 'this user'}?\n\nThey will be able to login and use the system again.`
@@ -129,23 +113,17 @@ export default function UserManagement() {
 
     try {
       await api.put(`/admin/users/${userId}/block`, { isBlocked: !isBlocked });
-      
-      // Update users list
       await fetchUsers();
-      
-      // Update selected user in modal if it's open
       if (selectedUser && selectedUser._id === userId) {
         setSelectedUser({ ...selectedUser, isBlocked: !isBlocked });
       }
 
-      // Success message
       const successMsg = !isBlocked 
         ? `✅ User blocked successfully!\n\n🚫 ${user?.email} cannot login or use the system anymore.`
         : `✅ User unblocked successfully!\n\n✓ ${user?.email} can now login and use the system.`;
       
       alert(successMsg);
     } catch (error: any) {
-      console.error('Error blocking user:', error);
       alert(`❌ Failed to ${isBlocked ? 'unblock' : 'block'} user\n\n${error.response?.data?.message || 'Unknown error occurred'}`);
     }
   };
@@ -155,12 +133,10 @@ export default function UserManagement() {
     setShowModal(true);
     setLoadingProfile(true);
     
-    // Fetch user profile
     try {
       const response = await api.get(`/profiles/${user._id}`);
       setUserProfile(response.data || null);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
       setUserProfile(null);
     } finally {
       setLoadingProfile(false);
@@ -185,7 +161,6 @@ export default function UserManagement() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-full space-y-6">
-      {/* Header with Quick Stats */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 font-['Poppins']">User Management</h1>
@@ -196,7 +171,6 @@ export default function UserManagement() {
         </button>
       </div>
 
-      {/* Quick Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-blue-500/20 via-blue-600/10 to-transparent border border-blue-500/30 rounded-2xl p-4 sm:p-5 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 group cursor-pointer hover:scale-105">
           <div className="flex items-center gap-3 mb-2">
@@ -236,12 +210,14 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Search & Filter */}
       <div className="bg-gradient-to-br from-primary-800/60 via-primary-700/40 to-primary-800/60 backdrop-blur-xl border border-primary-600/50 rounded-2xl p-5 sm:p-6 shadow-2xl">
         <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative group">
+            <label htmlFor="searchUser" className="sr-only">Search by email or username</label>
             <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 group-hover:scale-110 transition-transform"></i>
             <input
+              id="searchUser"
+              name="searchUser"
               type="text"
               placeholder="Search by email or username..."
               value={searchTerm}
@@ -249,7 +225,10 @@ export default function UserManagement() {
               className="w-full bg-primary-900/50 text-white rounded-xl pl-12 pr-4 py-3.5 border border-primary-600/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 focus:outline-none transition-all placeholder:text-primary-400"
             />
           </div>
+          <label htmlFor="filterRole" className="sr-only">Filter by role</label>
           <select
+            id="filterRole"
+            name="filterRole"
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value as any)}
             className="bg-primary-900/50 text-white rounded-xl px-4 py-3.5 border border-primary-600/50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none cursor-pointer transition-all hover:bg-primary-900/70"
@@ -261,7 +240,6 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Users Table */}
       <div className="bg-gradient-to-br from-primary-800/60 via-primary-700/40 to-primary-800/60 backdrop-blur-xl border border-primary-600/50 rounded-2xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -402,11 +380,9 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* User Details Modal */}
       {showModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-primary-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-primary-700 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
             <div className="sticky top-0 bg-primary-800 border-b border-primary-700 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-white">User Details</h2>
               <button onClick={() => setShowModal(false)} className="text-primary-400 hover:text-white transition-colors">
@@ -414,9 +390,7 @@ export default function UserManagement() {
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-6 space-y-6">
-              {/* Blocked Warning */}
               {selectedUser.isBlocked && (
                 <div className="bg-gradient-to-r from-red-500/20 to-pink-500/10 border border-red-500/50 rounded-xl p-4 flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-red-500/30 flex items-center justify-center flex-shrink-0">
@@ -429,7 +403,6 @@ export default function UserManagement() {
                 </div>
               )}
 
-              {/* Avatar & Basic Info */}
               <div className="flex items-center gap-4">
                 {loadingProfile ? (
                   <div className="w-20 h-20 rounded-full bg-primary-700 animate-pulse"></div>
@@ -458,7 +431,6 @@ export default function UserManagement() {
                 </div>
               </div>
 
-              {/* Bio Section */}
               {!loadingProfile && userProfile?.bio && (
                 <div>
                   <label className="text-primary-400 text-sm">Bio</label>
@@ -466,7 +438,6 @@ export default function UserManagement() {
                 </div>
               )}
 
-              {/* Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-primary-400 text-sm font-semibold">User ID</label>
@@ -517,7 +488,6 @@ export default function UserManagement() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-primary-700">
                 <button
                   onClick={() => setShowModal(false)}
@@ -541,10 +511,6 @@ export default function UserManagement() {
           </div>
         </div>
       )}
-
-      {/* Tooltip hover preview removed - View button opens modal instead */}
-
-      {/* View uses the existing User Details modal (handleViewUser) */}
     </div>
   );
 }

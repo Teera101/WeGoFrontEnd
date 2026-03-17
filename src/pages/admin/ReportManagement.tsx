@@ -69,7 +69,6 @@ export default function ReportManagement() {
       const response = await api.get('/admin/reports', { params });
       setReports(response.data.reports);
     } catch (error: any) {
-      console.error('Error fetching reports:', error);
       toast(error?.response?.data?.error || 'Failed to load reports');
     } finally {
       setLoading(false);
@@ -81,7 +80,6 @@ export default function ReportManagement() {
       const response = await api.get(`/admin/reports/${reportId}`);
       setSelectedReport(response.data);
     } catch (error: any) {
-      console.error('Error fetching report details:', error);
       toast(error?.response?.data?.error || 'Failed to load report details');
     }
   };
@@ -99,7 +97,6 @@ export default function ReportManagement() {
         fetchReportDetails(reportId);
       }
     } catch (error: any) {
-      console.error('Error updating report:', error);
       toast(error?.response?.data?.error || 'Failed to update report');
     } finally {
       setProcessing(false);
@@ -119,7 +116,6 @@ export default function ReportManagement() {
       fetchReports();
       setSelectedReport(null);
     } catch (error: any) {
-      console.error('Error taking action:', error);
       toast(error?.response?.data?.error || 'Failed to complete action');
     } finally {
       setProcessing(false);
@@ -159,18 +155,18 @@ export default function ReportManagement() {
   return (
     <div className="min-h-screen py-8">
       <div className="container-app">
-        {/* Header */}
         <header className="mb-6">
           <h2 className="text-3xl font-bold mb-2">Report Management</h2>
           <p className="text-slate-400">Review and moderate reported content</p>
         </header>
 
-        {/* Filters */}
         <div className="card p-4 mb-6">
           <div className="flex flex-wrap gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label htmlFor="filterStatus" className="block text-sm font-medium mb-2">Status</label>
               <select
+                id="filterStatus"
+                name="filterStatus"
                 className="input"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -184,8 +180,10 @@ export default function ReportManagement() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Type</label>
+              <label htmlFor="filterType" className="block text-sm font-medium mb-2">Type</label>
               <select
+                id="filterType"
+                name="filterType"
                 className="input"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
@@ -205,7 +203,6 @@ export default function ReportManagement() {
           </div>
         </div>
 
-        {/* Reports List */}
         <div className="grid grid-cols-1 gap-4">
           {loading ? (
             <div className="card p-8 text-center">
@@ -254,11 +251,9 @@ export default function ReportManagement() {
         </div>
       </div>
 
-      {/* Report Details Modal */}
       {selectedReport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            {/* Close Button */}
             <button
               onClick={() => setSelectedReport(null)}
               className="float-right text-slate-400 hover:text-white"
@@ -270,14 +265,12 @@ export default function ReportManagement() {
 
             <h3 className="text-2xl font-bold mb-4">Report Details</h3>
 
-            {/* Status */}
             <div className="mb-4">
               <span className={`px-3 py-1 rounded-full text-xs border ${STATUS_COLORS[selectedReport.report.status]}`}>
                 {selectedReport.report.status}
               </span>
             </div>
 
-            {/* Report Info */}
             <div className="space-y-4 mb-6">
               <div>
                 <h4 className="text-sm font-semibold text-slate-400 mb-1">Target</h4>
@@ -319,7 +312,6 @@ export default function ReportManagement() {
               )}
             </div>
 
-            {/* Actions */}
             <div className="border-t border-slate-700 pt-4">
               <h4 className="text-sm font-semibold mb-3">Actions</h4>
               <div className="grid grid-cols-2 gap-3">
@@ -372,15 +364,16 @@ export default function ReportManagement() {
         </div>
       )}
 
-      {/* Action Confirmation Modal */}
       {actionModal.show && selectedReport && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">Confirm Action: {actionModal.action}</h3>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Reason (Optional)</label>
+              <label htmlFor="actionReason" className="block text-sm font-medium mb-2">Reason (Optional)</label>
               <textarea
+                id="actionReason"
+                name="actionReason"
                 className="input w-full min-h-[80px]"
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}

@@ -245,8 +245,11 @@ export default function ActivityManagement() {
 
       <div className="bg-gradient-to-br from-primary-800/60 via-primary-700/40 to-primary-800/60 backdrop-blur-xl border border-primary-600/50 rounded-2xl p-5 sm:p-6 shadow-2xl">
         <div className="relative group">
+          <label htmlFor="searchActivity" className="sr-only">Search activities</label>
           <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 group-hover:scale-110 transition-transform"></i>
           <input
+            id="searchActivity"
+            name="searchActivity"
             type="text"
             placeholder="Search activities..."
             value={searchTerm}
